@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, serif;
+  --color-forest-950: #06281c;
+  --color-forest-900: #0a3d2a;
+  --color-forest-800: #0d5338;
+  --color-forest-700: #0f6b45;
+  --color-forest-600: #14855a;
+  --color-forest-500: #1a9f6c;
+  --color-sand-50: #f7f4ef;
+  --color-sand-100: #efe8dc;
+  --color-sand-200: #e2d5c2;
+  --color-gold-400: #e6b84a;
+  --color-gold-500: #d4a017;
+  --color-gold-600: #b8860b;
+  --color-ink-900: #14201a;
+  --color-ink-700: #3a4a42;
+  --color-ink-500: #6b7a72;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-sans);
+  color: var(--color-ink-900);
+  background: var(--color-sand-50);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
