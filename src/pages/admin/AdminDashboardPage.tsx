@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useOutletContext } from 'react-router-dom'
 import { AdminShell } from '../../components/admin/AdminShell'
-import { PublicHeader } from '../../components/layout/Header'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
@@ -105,17 +104,7 @@ export function AdminLayout() {
   }
 
   if (!loading && (!user || (user.role !== 'admin' && user.role !== 'super_admin'))) {
-    return (
-      <div className="min-h-screen bg-[#f4f5f4]">
-        <PublicHeader />
-        <p className="p-8">
-          Accès réservé.{' '}
-          <Link to="/connexion" className="underline">
-            Connexion admin
-          </Link>
-        </p>
-      </div>
-    )
+    return <Navigate to="/" replace />
   }
 
   return (
