@@ -49,6 +49,7 @@ export interface Vehicle {
   display_name: string
   year?: number
   category: string
+  category_label?: string
   seats: number
   doors: number
   luggage: number

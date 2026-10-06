@@ -25,31 +25,3 @@ export function formatXaf(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount)
 }
-
-export function categoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    city_car: 'Citadine',
-    sedan: 'Berline',
-    suv: 'SUV',
-    '4x4': '4x4',
-    pickup: 'Pick-up',
-    minibus: 'Minibus',
-    utility: 'Utilitaire',
-    luxury: 'Luxe',
-  }
-  return labels[category] ?? category
-}
-
-export function transmissionLabel(value: string): string {
-  return value === 'automatic' ? 'Automatique' : 'Manuelle'
-}
-
-export function fuelLabel(value: string): string {
-  const labels: Record<string, string> = {
-    petrol: 'Essence',
-    diesel: 'Diesel',
-    hybrid: 'Hybride',
-    electric: 'Électrique',
-  }
-  return labels[value] ?? value
-}

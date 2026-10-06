@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { PublicHeader } from '../../components/layout/Header'
 import { useAuth } from '../../context/AuthContext'
+import { useCatalog } from '../../context/CatalogContext'
 import api, { formatXaf } from '../../lib/api'
 
 export function BecomePartnerPage() {
@@ -45,7 +46,7 @@ export function PartnerRegisterPage() {
     company_name: '',
     manager_name: '',
     address: '',
-    city: 'Libreville',
+    city: '',
     phone: '',
     whatsapp: '',
     rccm: '',
@@ -179,29 +180,35 @@ export function PartnerRegisterPage() {
 
 export function PartnerDashboardPage() {
   const { user } = useAuth()
+  const { labels } = useCatalog()
   const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null)
   const [vehicles, setVehicles] = useState<unknown[]>([])
+  const [categories, setCategories] = useState<{ slug: string; label: string }[]>([])
   const [form, setForm] = useState({
-    brand: 'Toyota',
+    brand: '',
     model: '',
-    category: 'sedan',
+    category: '',
     plate_number: '',
     seats: 5,
     transmission: 'automatic',
     fuel: 'petrol',
     price_per_day: 40000,
-    cover_url: 'https://images.unsplash.com/photo-1623869675781-80aa31012a5a?w=800&q=80',
+    cover_url: '',
   })
   const [msg, setMsg] = useState('')
 
   async function load() {
     try {
-      const [d, v] = await Promise.all([
+      const [d, v, cats] = await Promise.all([
         api.get('/partners/me/dashboard'),
         api.get('/partners/me/vehicles'),
+        api.get('/catalog/categories'),
       ])
       setDashboard(d.data.data)
       setVehicles(v.data.data || [])
+      const list = cats.data.data || []
+      setCategories(list)
+      setForm((f) => ({ ...f, category: f.category || list[0]?.slug || '' }))
     } catch {
       setDashboard(null)
     }
@@ -278,6 +285,8 @@ export function PartnerDashboardPage() {
 
               <form onSubmit={addVehicle} className="space-y-3 rounded-2xl border border-sand-200 bg-white p-5">
                 <h2 className="font-display text-xl font-bold">Ajouter un véhicule</h2>
+                <input className="w-full rounded-xl border px-3 py-2" placeholder="Marque" value={form.brand}
+                  onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))} required />
                 <input className="w-full rounded-xl border px-3 py-2" placeholder="Modèle" value={form.model}
                   onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} required />
                 <input className="w-full rounded-xl border px-3 py-2" placeholder="Immatriculation" value={form.plate_number}
@@ -286,12 +295,28 @@ export function PartnerDashboardPage() {
                   value={form.price_per_day}
                   onChange={(e) => setForm((f) => ({ ...f, price_per_day: Number(e.target.value) }))} required />
                 <select className="w-full rounded-xl border px-3 py-2" value={form.category}
-                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-                  <option value="city_car">Citadine</option>
-                  <option value="sedan">Berline</option>
-                  <option value="suv">SUV</option>
-                  <option value="4x4">4x4</option>
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} required>
+                  {categories.map((cat) => (
+                    <option key={cat.slug} value={cat.slug}>
+                      {cat.label || labels.categories[cat.slug] || cat.slug}
+                    </option>
+                  ))}
                 </select>
+                <select className="w-full rounded-xl border px-3 py-2" value={form.transmission}
+                  onChange={(e) => setForm((f) => ({ ...f, transmission: e.target.value }))}>
+                  {Object.entries(labels.transmission).map(([slug, label]) => (
+                    <option key={slug} value={slug}>{label}</option>
+                  ))}
+                </select>
+                <select className="w-full rounded-xl border px-3 py-2" value={form.fuel}
+                  onChange={(e) => setForm((f) => ({ ...f, fuel: e.target.value }))}>
+                  {Object.entries(labels.fuel).map(([slug, label]) => (
+                    <option key={slug} value={slug}>{label}</option>
+                  ))}
+                </select>
+                <input className="w-full rounded-xl border px-3 py-2" placeholder="URL photo"
+                  value={form.cover_url}
+                  onChange={(e) => setForm((f) => ({ ...f, cover_url: e.target.value }))} />
                 {msg && <p className="text-sm text-forest-700">{msg}</p>}
                 <button type="submit" className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white">
                   Enregistrer

@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
-import { categoryLabel, formatXaf, fuelLabel, transmissionLabel } from '../../lib/api'
+import { useCatalog } from '../../context/CatalogContext'
+import { formatXaf } from '../../lib/api'
 import type { Vehicle } from '../../types'
 
 export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; searchQuery?: string }) {
+  const { fuelLabel, transmissionLabel } = useCatalog()
   const href = searchQuery ? `/vehicules/${vehicle.id}?${searchQuery}` : `/vehicules/${vehicle.id}`
 
   return (
@@ -24,7 +26,7 @@ export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; search
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-forest-600">
-                {categoryLabel(vehicle.category)}
+                {vehicle.category_label || vehicle.category}
               </p>
               <h3 className="font-display text-xl font-semibold text-ink-900">{vehicle.display_name}</h3>
               <p className="text-sm text-ink-500">

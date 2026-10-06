@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
+import { ContentLoader } from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
-import api, { categoryLabel, formatXaf, fuelLabel, transmissionLabel } from '../lib/api'
+import { useCatalog } from '../context/CatalogContext'
+import api, { formatXaf } from '../lib/api'
 import type { Vehicle } from '../types'
 
 export function VehicleDetailPage() {
@@ -10,6 +12,7 @@ export function VehicleDetailPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { fuelLabel, transmissionLabel } = useCatalog()
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
@@ -81,7 +84,11 @@ export function VehicleDetailPage() {
     return (
       <div className="min-h-screen bg-sand-50">
         <PublicHeader />
-        <p className="p-8 text-ink-500">Chargement…</p>
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <div className="rounded-2xl border border-sand-200 bg-white">
+            <ContentLoader />
+          </div>
+        </div>
       </div>
     )
   }
@@ -115,7 +122,7 @@ export function VehicleDetailPage() {
           </div>
           <div className="mt-6 space-y-4">
             <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">
-              {categoryLabel(vehicle.category)}
+              {vehicle.category_label || vehicle.category}
             </p>
             <h1 className="font-display text-4xl font-bold text-forest-950">{vehicle.display_name}</h1>
             <p className="text-ink-700">

@@ -3,31 +3,37 @@ import { Link } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
 import { SearchForm } from '../components/search/SearchForm'
 import { VehicleCard } from '../components/vehicles/VehicleCard'
-import api, { categoryLabel } from '../lib/api'
+import { ContentLoader } from '../components/ui/Spinner'
+import api from '../lib/api'
 import type { Location, Vehicle } from '../types'
 
-const CATEGORIES = ['city_car', 'sedan', 'suv', '4x4', 'minibus', 'luxury']
-
-const REASSURANCE = [
-  { title: 'Prix final garanti', text: 'Aucun frais caché à la prise en charge' },
-  { title: 'Assurance incluse', text: 'Véhicules couverts pendant la location' },
-  { title: 'Mobile Money', text: 'Airtel Money & Moov Money acceptés' },
-  { title: 'Support WhatsApp', text: 'Assistance locale réactive' },
-]
+type HomeCatalog = {
+  contents: Record<string, string>
+  reassurance: { id: number; title: string; text: string }[]
+  categories: { id: number; slug: string; label: string; description?: string }[]
+}
 
 export function HomePage() {
   const [popular, setPopular] = useState<Location[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [catalog, setCatalog] = useState<HomeCatalog | null>(null)
 
   useEffect(() => {
     void Promise.all([
+      api.get('/catalog/home'),
       api.get('/locations/popular'),
       api.get('/vehicles/search', { params: { per_page: 6, sort: 'rating' } }),
-    ]).then(([locs, vehs]) => {
-      setPopular(locs.data.data)
-      setVehicles(vehs.data.data)
-    })
+    ])
+      .then(([home, locs, vehs]) => {
+        setCatalog(home.data.data)
+        setPopular(locs.data.data)
+        setVehicles(vehs.data.data)
+      })
+      .catch(() => undefined)
   }, [])
+
+  const c = catalog?.contents || {}
+  const heroImage = c['home.hero_image_url'] || ''
 
   return (
     <div className="min-h-screen bg-sand-50">
@@ -35,8 +41,9 @@ export function HomePage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage:
-              "linear-gradient(120deg, rgba(6,40,28,0.78) 0%, rgba(10,61,42,0.55) 45%, rgba(6,40,28,0.35) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1800&q=80')",
+            backgroundImage: `linear-gradient(120deg, rgba(6,40,28,0.78) 0%, rgba(10,61,42,0.55) 45%, rgba(6,40,28,0.35) 100%)${
+              heroImage ? `, url('${heroImage}')` : ''
+            }`,
           }}
         />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(230,184,74,0.18),transparent_50%)]" />
@@ -45,17 +52,15 @@ export function HomePage() {
         <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-center gap-10 px-4 pb-16 pt-28 md:px-6">
           <div className="max-w-2xl animate-[fadeUp_0.7s_ease-out]">
             <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">
-              Marketplace de location au Gabon
+              {c['home.hero_eyebrow']}
             </p>
             <h1 className="font-display text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl">
-              LocaGabon
+              {c['home.hero_title']}
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/85 md:text-xl">
-              Comparez, réservez et payez votre véhicule en moins de 3 minutes — partenaires locaux vérifiés.
+              {c['home.hero_subtitle']}
             </p>
-            <p className="mt-3 text-sm text-white/70">
-              Véhicules récents · Assurance incluse · Livraison aéroport Léon-Mba / hôtel / domicile
-            </p>
+            <p className="mt-3 text-sm text-white/70">{c['home.hero_promises']}</p>
           </div>
 
           <div className="max-w-3xl animate-[fadeUp_0.9s_ease-out]">
@@ -66,8 +71,8 @@ export function HomePage() {
 
       <section className="border-b border-sand-200 bg-white">
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4 md:px-6">
-          {REASSURANCE.map((item) => (
-            <div key={item.title} className="space-y-1">
+          {(catalog?.reassurance || []).map((item) => (
+            <div key={item.id} className="space-y-1">
               <h2 className="font-semibold text-forest-800">{item.title}</h2>
               <p className="text-sm text-ink-500">{item.text}</p>
             </div>
@@ -78,11 +83,9 @@ export function HomePage() {
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
         <div className="mb-8 max-w-2xl">
           <h2 className="font-display text-3xl font-bold text-forest-950">
-            Agence de location de voiture au Gabon
+            {c['home.destinations_title']}
           </h2>
-          <p className="mt-3 text-ink-700">
-            Destinations populaires pour démarrer votre recherche.
-          </p>
+          <p className="mt-3 text-ink-700">{c['home.destinations_subtitle']}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {popular.map((loc) => (
@@ -100,16 +103,16 @@ export function HomePage() {
 
       <section className="bg-forest-950 py-16 text-white">
         <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <h2 className="font-display text-3xl font-bold">Catégories</h2>
-          <p className="mt-2 text-white/70">De la citadine au 4x4 pour l’intérieur du pays.</p>
+          <h2 className="font-display text-3xl font-bold">{c['home.categories_title']}</h2>
+          <p className="mt-2 text-white/70">{c['home.categories_subtitle']}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            {CATEGORIES.map((cat) => (
+            {(catalog?.categories || []).map((cat) => (
               <Link
-                key={cat}
-                to={`/recherche?category=${cat}`}
+                key={cat.id}
+                to={`/recherche?category=${cat.slug}`}
                 className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium transition hover:border-gold-400 hover:bg-white/10"
               >
-                {categoryLabel(cat)}
+                {cat.label}
               </Link>
             ))}
           </div>
@@ -119,18 +122,26 @@ export function HomePage() {
       <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
-            <h2 className="font-display text-3xl font-bold text-forest-950">Véhicules vedettes</h2>
-            <p className="mt-2 text-ink-700">Offres de partenaires validés par notre équipe.</p>
+            <h2 className="font-display text-3xl font-bold text-forest-950">
+              {c['home.featured_title']}
+            </h2>
+            <p className="mt-2 text-ink-700">{c['home.featured_subtitle']}</p>
           </div>
           <Link to="/vehicules" className="text-sm font-semibold text-forest-700 hover:underline">
             Tout voir
           </Link>
         </div>
+        {vehicles.length === 0 ? (
+          <div className="rounded-2xl border border-sand-200 bg-white">
+            <ContentLoader />
+          </div>
+        ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {vehicles.map((v) => (
             <VehicleCard key={v.id} vehicle={v} />
           ))}
         </div>
+        )}
       </section>
 
       <footer className="border-t border-sand-200 bg-white py-10">

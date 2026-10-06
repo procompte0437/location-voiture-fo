@@ -1,20 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
+import { ContentLoader } from '../components/ui/Spinner'
 import { SearchForm } from '../components/search/SearchForm'
 import { VehicleCard } from '../components/vehicles/VehicleCard'
-import api, { categoryLabel } from '../lib/api'
+import { useCatalog } from '../context/CatalogContext'
+import api from '../lib/api'
 import type { Vehicle } from '../types'
-
-const CATEGORIES = ['', 'city_car', 'sedan', 'suv', '4x4', 'pickup', 'minibus', 'utility', 'luxury']
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams()
+  const { labels } = useCatalog()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [meta, setMeta] = useState<{ total: number; days: number | null }>({ total: 0, days: null })
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState(params.get('category') || '')
   const [sort, setSort] = useState(params.get('sort') || 'price')
+  const [categories, setCategories] = useState<{ slug: string; label: string }[]>([])
+
+  useEffect(() => {
+    void api.get('/catalog/categories').then(({ data }) => setCategories(data.data || []))
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -36,6 +42,7 @@ export function SearchPage() {
   }, [params, category, sort])
 
   const searchQuery = params.toString()
+  const categoryOptions = [{ slug: '', label: 'Toutes' }, ...categories]
 
   return (
     <div className="min-h-screen bg-sand-50">
@@ -51,22 +58,22 @@ export function SearchPage() {
           <div>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-500">Catégorie</h2>
             <div className="space-y-1">
-              {CATEGORIES.map((c) => (
+              {categoryOptions.map((c) => (
                 <button
-                  key={c || 'all'}
+                  key={c.slug || 'all'}
                   type="button"
                   onClick={() => {
-                    setCategory(c)
+                    setCategory(c.slug)
                     const next = new URLSearchParams(params)
-                    if (c) next.set('category', c)
+                    if (c.slug) next.set('category', c.slug)
                     else next.delete('category')
                     setParams(next)
                   }}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                    category === c ? 'bg-forest-800 text-white' : 'hover:bg-sand-100'
+                    category === c.slug ? 'bg-forest-800 text-white' : 'hover:bg-sand-100'
                   }`}
                 >
-                  {c ? categoryLabel(c) : 'Toutes'}
+                  {c.label || labels.categories[c.slug] || c.slug}
                 </button>
               ))}
             </div>
@@ -98,7 +105,9 @@ export function SearchPage() {
           </div>
 
           {loading ? (
-            <p className="text-ink-500">Chargement des offres…</p>
+            <div className="rounded-2xl border border-sand-200 bg-white">
+              <ContentLoader label="Chargement des offres…" />
+            </div>
           ) : vehicles.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-sand-200 bg-white p-10 text-center">
               <p className="font-medium text-ink-900">Aucun véhicule pour ces critères</p>
