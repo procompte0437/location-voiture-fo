@@ -9,6 +9,7 @@ import {
   ConfirmationPage,
   GuestBookingLookupPage,
   MyBookingsPage,
+  PageNouvelleReservation,
 } from './pages/client/BookingPages'
 import { DispositionPartenaire } from './components/partenaire/CoquePartenaire'
 import {
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/connexion" element={<LoginPage />} />
           <Route path="/inscription" element={<RegisterPage />} />
           <Route path="/mes-reservations" element={<MyBookingsPage />} />
+          <Route path="/mes-reservations/nouvelle" element={<PageNouvelleReservation />} />
           <Route path="/reservation/trouver" element={<GuestBookingLookupPage />} />
           <Route path="/confirmation/:id" element={<ConfirmationPage />} />
           <Route path="/devenir-partenaire" element={<PageDevenirPartenaire />} />

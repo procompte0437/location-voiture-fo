@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { NavEspaceClient } from '../../components/client/NavEspaceClient'
 import { PublicHeader } from '../../components/layout/Header'
+import { SearchForm } from '../../components/search/SearchForm'
 import { ContentLoader } from '../../components/ui/Spinner'
+import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
 import type { Booking } from '../../types'
@@ -82,8 +85,9 @@ export function ConfirmationPage() {
   return (
     <div className="min-h-screen bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <div className="rounded-2xl border border-forest-600/20 bg-white p-8 shadow-sm">
+      <div className="mx-auto max-w-lg px-4 py-10 md:py-16">
+        <NavEspaceClient />
+        <div className="rounded-2xl border border-forest-600/20 bg-white p-8 text-center shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">Confirmation</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-forest-950">
             Réservation en cours
@@ -138,10 +142,10 @@ export function ConfirmationPage() {
   )
 }
 
-type OngletReservations = 'toutes' | 'en_cours' | 'confirmees' | 'terminees' | 'annulees'
+type FiltreStatutClient = 'toutes' | 'en_cours' | 'confirmees' | 'terminees' | 'annulees'
 
-const ONGLETS: { cle: OngletReservations; libelle: string; statuts?: string[] }[] = [
-  { cle: 'toutes', libelle: 'Toutes' },
+const FILTRES_STATUT: { cle: FiltreStatutClient; libelle: string; statuts?: string[] }[] = [
+  { cle: 'toutes', libelle: 'Tous les statuts' },
   {
     cle: 'en_cours',
     libelle: 'En cours',
@@ -179,12 +183,20 @@ function badgeStatut(statut: string) {
   return `${base} bg-red-50 text-red-800`
 }
 
+function nomVehiculeReservation(b: Booking) {
+  return (
+    b.vehicle?.display_name ||
+    [b.vehicle?.brand, b.vehicle?.model].filter(Boolean).join(' ') ||
+    b.reference
+  )
+}
+
 export function MyBookingsPage() {
   const { user, loading: authLoading } = useAuth()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [error, setError] = useState('')
   const [chargement, setChargement] = useState(true)
-  const [onglet, setOnglet] = useState<OngletReservations>('toutes')
+  const [filtreStatut, setFiltreStatut] = useState<FiltreStatutClient>('toutes')
 
   async function charger() {
     setChargement(true)
@@ -205,33 +217,17 @@ export function MyBookingsPage() {
     void charger()
   }, [user, authLoading])
 
-  const comptes = useMemo(() => {
-    const c: Record<OngletReservations, number> = {
-      toutes: bookings.length,
-      en_cours: 0,
-      confirmees: 0,
-      terminees: 0,
-      annulees: 0,
-    }
-    for (const b of bookings) {
-      for (const o of ONGLETS) {
-        if (o.statuts?.includes(b.status)) c[o.cle] += 1
-      }
-    }
-    return c
-  }, [bookings])
-
   const filtrées = useMemo(() => {
-    const def = ONGLETS.find((o) => o.cle === onglet)
+    const def = FILTRES_STATUT.find((o) => o.cle === filtreStatut)
     if (!def?.statuts) return bookings
     return bookings.filter((b) => def.statuts!.includes(b.status))
-  }, [bookings, onglet])
+  }, [bookings, filtreStatut])
 
   if (authLoading) {
     return (
       <div className="min-h-screen bg-sand-50">
         <PublicHeader />
-        <div className="mx-auto max-w-4xl px-4 py-10">
+        <div className="mx-auto max-w-5xl px-4 py-10">
           <ContentLoader label="Chargement de votre espace…" />
         </div>
       </div>
@@ -250,153 +246,190 @@ export function MyBookingsPage() {
   return (
     <div className="min-h-screen bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto max-w-4xl px-4 py-10 md:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
-              Espace client
+      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+        <NavEspaceClient />
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+            Espace client
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
+            Mes réservations
+          </h1>
+          <p className="mt-1.5 text-sm text-ink-500">
+            Suivez vos demandes, confirmations et locations passées.
+          </p>
+        </div>
+
+        {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
+
+        {!chargement && bookings.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-black/12 bg-white px-6 py-14 text-center">
+            <p className="font-medium text-ink-800">Aucune réservation pour le moment</p>
+            <p className="mt-1 text-sm text-ink-500">
+              Vos prochaines réservations apparaîtront ici.
             </p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
-              Mes réservations
-            </h1>
-            <p className="mt-1.5 text-sm text-ink-500">
-              Suivez vos demandes, confirmations et locations passées.
-            </p>
+            <Link
+              to="/mes-reservations/nouvelle"
+              className="mt-5 inline-flex rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white"
+            >
+              Réserver une voiture
+            </Link>
           </div>
-          <button
-            type="button"
-            onClick={() => void charger()}
-            className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 hover:bg-black/[0.02]"
-            aria-label="Actualiser"
-          >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M4 4v6h6M20 20v-6h-6" strokeLinecap="round" />
-              <path d="M20 9A8 8 0 0 0 6.3 6.3L4 10M4 15a8 8 0 0 0 13.7 2.7L20 14" strokeLinecap="round" />
-            </svg>
-            Actualiser
-          </button>
-        </div>
-
-        <div className="mt-6 flex flex-wrap gap-2 border-b border-black/8 pb-1">
-          {ONGLETS.map((o) => {
-            const actif = onglet === o.cle
-            const n = comptes[o.cle]
-            return (
-              <button
-                key={o.cle}
-                type="button"
-                onClick={() => setOnglet(o.cle)}
-                className={`relative -mb-px rounded-t-lg px-3.5 py-2.5 text-sm font-medium transition ${
-                  actif
-                    ? 'border-b-2 border-forest-900 text-forest-950'
-                    : 'text-ink-500 hover:text-ink-800'
-                }`}
-              >
-                {o.libelle}
-                <span
-                  className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] ${
-                    actif ? 'bg-forest-900 text-white' : 'bg-black/6 text-ink-500'
-                  }`}
-                >
-                  {n}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
-
-        <div className="mt-6">
-          {chargement ? (
-            <div className="rounded-2xl border border-sand-200 bg-white">
-              <ContentLoader label="Chargement des réservations…" />
-            </div>
-          ) : filtrées.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/12 bg-white px-6 py-14 text-center">
-              <p className="font-medium text-ink-800">Aucune réservation dans cet onglet</p>
-              <p className="mt-1 text-sm text-ink-500">
-                {onglet === 'toutes'
-                  ? 'Vos prochaines réservations apparaîtront ici.'
-                  : 'Changez d’onglet ou lancez une nouvelle recherche.'}
-              </p>
-              <Link
-                to="/"
-                className="mt-5 inline-flex rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white"
-              >
-                Réserver une voiture
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {filtrées.map((b) => {
-                const cover = b.vehicle?.cover_url || b.vehicle?.media?.[0]?.url
-                const nom =
-                  b.vehicle?.display_name ||
-                  [b.vehicle?.brand, b.vehicle?.model].filter(Boolean).join(' ') ||
-                  b.reference
-                return (
-                  <li
-                    key={b.id}
-                    className="overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-sm"
-                  >
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="h-36 w-full shrink-0 bg-sand-100 sm:h-auto sm:w-40">
-                        {cover ? (
-                          <img src={cover} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full min-h-[8rem] items-center justify-center text-ink-300">
-                            —
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-ink-900">{nom}</p>
-                            <p className="mt-0.5 text-xs text-ink-500">Réf. {b.reference}</p>
-                          </div>
-                          <span className={badgeStatut(b.status)}>{libelleStatut(b.status)}</span>
-                        </div>
-                        <div className="grid gap-1 text-sm text-ink-600 sm:grid-cols-2">
-                          <p>
-                            <span className="text-ink-400">Départ · </span>
-                            {formaterDateCourte(b.pickup_at)}
-                          </p>
-                          <p>
-                            <span className="text-ink-400">Retour · </span>
-                            {formaterDateCourte(b.return_at)}
-                          </p>
-                          {b.days_count != null && (
-                            <p className="sm:col-span-2">
-                              <span className="text-ink-400">Durée · </span>
-                              {b.days_count} jour{b.days_count > 1 ? 's' : ''}
-                              {b.partner?.company_name || b.partner?.manager_name
-                                ? ` · ${b.partner.company_name || b.partner.manager_name}`
-                                : ''}
-                            </p>
-                          )}
-                        </div>
-                        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-sand-100 pt-3">
-                          <p className="text-lg font-bold text-forest-900">
-                            {formatXaf(b.total_amount)}
-                          </p>
-                          <Link
-                            to={`/confirmation/${b.id}`}
-                            state={{ booking: b }}
-                            className="text-sm font-medium text-forest-800 hover:underline"
-                          >
-                            Voir le détail
-                          </Link>
-                        </div>
+        ) : (
+          <TableauDonnees
+            colonnes={[
+              {
+                cle: 'vehicule',
+                libelle: 'Véhicule',
+                rendu: (b) => {
+                  const cover = b.vehicle?.cover_url || b.vehicle?.media?.[0]?.url
+                  return (
+                    <div className="flex items-center gap-3">
+                      {cover ? (
+                        <img
+                          src={cover}
+                          alt=""
+                          className="h-10 w-14 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <span className="grid h-10 w-14 shrink-0 place-items-center rounded-lg bg-sand-100 text-ink-300">
+                          —
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink-900">{nomVehiculeReservation(b)}</p>
+                        <p className="truncate text-xs text-ink-500">Réf. {b.reference}</p>
                       </div>
                     </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                  )
+                },
+              },
+              {
+                cle: 'periode',
+                libelle: 'Période',
+                rendu: (b) => (
+                  <div className="text-sm">
+                    <p>{formaterDateCourte(b.pickup_at)}</p>
+                    <p className="text-ink-500">→ {formaterDateCourte(b.return_at)}</p>
+                    {b.days_count != null && (
+                      <p className="mt-0.5 text-xs text-ink-400">
+                        {b.days_count} jour{b.days_count > 1 ? 's' : ''}
+                      </p>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                cle: 'partenaire',
+                libelle: 'Partenaire',
+                rendu: (b) =>
+                  b.partner?.company_name || b.partner?.manager_name || '—',
+              },
+              {
+                cle: 'montant',
+                libelle: 'Montant',
+                rendu: (b) => (
+                  <span className="font-semibold text-forest-900">{formatXaf(b.total_amount)}</span>
+                ),
+              },
+              {
+                cle: 'status',
+                libelle: 'Statut',
+                rendu: (b) => (
+                  <span className={badgeStatut(b.status)}>{libelleStatut(b.status)}</span>
+                ),
+              },
+            ]}
+            donnees={filtrées}
+            cleLigne={(b) => b.id}
+            champsRecherche={(b) =>
+              [
+                b.reference,
+                nomVehiculeReservation(b),
+                b.vehicle?.brand,
+                b.vehicle?.model,
+                b.partner?.company_name,
+                b.partner?.manager_name,
+                libelleStatut(b.status),
+                b.status,
+              ]
+                .filter(Boolean)
+                .join(' ')
+            }
+            filtresSupplementaires={
+              <select
+                className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                value={filtreStatut}
+                onChange={(e) => setFiltreStatut(e.target.value as FiltreStatutClient)}
+                aria-label="Filtrer par statut"
+              >
+                {FILTRES_STATUT.map((f) => (
+                  <option key={f.cle} value={f.cle}>
+                    {f.libelle}
+                  </option>
+                ))}
+              </select>
+            }
+            surActualiser={charger}
+            chargement={chargement}
+            messageVide="Aucune réservation ne correspond à ces filtres."
+            actions={(b) => (
+              <Link
+                to={`/confirmation/${b.id}`}
+                state={{ booking: b }}
+                className="text-sm font-medium text-forest-800 hover:underline"
+              >
+                Détail
+              </Link>
+            )}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Formulaire de nouvelle réservation dans l’espace client (hors hero du site). */
+export function PageNouvelleReservation() {
+  const { user, loading: authLoading } = useAuth()
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-sand-50">
+        <PublicHeader />
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          <ContentLoader label="Chargement…" />
         </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to={`/connexion?redirect=${encodeURIComponent('/mes-reservations/nouvelle')}`}
+        replace
+      />
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-sand-50">
+      <PublicHeader />
+      <div className="mx-auto max-w-3xl px-4 py-10 md:px-6">
+        <NavEspaceClient />
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+            Espace client
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
+            Nouvelle réservation
+          </h1>
+          <p className="mt-1.5 text-sm text-ink-500">
+            Choisissez vos dates et un véhicule disponible, puis continuez vers la confirmation.
+          </p>
+        </div>
+        <SearchForm espaceClient />
       </div>
     </div>
   )
@@ -423,6 +456,7 @@ export function GuestBookingLookupPage() {
     <div className="min-h-screen bg-sand-50">
       <PublicHeader />
       <div className="mx-auto max-w-lg px-4 py-12">
+        <NavEspaceClient />
         <h1 className="font-display text-3xl font-bold text-forest-950">Retrouver ma réservation</h1>
         <form onSubmit={onSubmit} className="mt-6 space-y-3 rounded-2xl border border-sand-200 bg-white p-6">
           <input

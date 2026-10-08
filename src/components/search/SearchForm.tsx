@@ -37,7 +37,13 @@ function appliquerLieuVehicule(
   }
 }
 
-export function SearchForm({ compact = false }: { compact?: boolean }) {
+type PropsSearchForm = {
+  compact?: boolean
+  /** Formulaire intégré à l’espace réservateur (pas le bloc hero du site). */
+  espaceClient?: boolean
+}
+
+export function SearchForm({ compact = false, espaceClient = false }: PropsSearchForm) {
   const navigate = useNavigate()
   const selecteurVehicule = useRef<HTMLDivElement>(null)
   const [locations, setLocations] = useState<Location[]>([])
@@ -212,19 +218,25 @@ export function SearchForm({ compact = false }: { compact?: boolean }) {
   return (
     <form
       onSubmit={onSubmit}
-      className={`w-full rounded-2xl bg-white shadow-xl shadow-forest-950/20 ${compact ? 'p-4' : 'p-5 md:p-6'}`}
+      className={`w-full rounded-2xl bg-white ${
+        espaceClient
+          ? 'border border-sand-200 shadow-sm'
+          : 'shadow-xl shadow-forest-950/20'
+      } ${compact ? 'p-4' : 'p-5 md:p-6'}`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <span className="inline-flex rounded-full bg-forest-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
           Voiture
         </span>
-        <button
-          type="button"
-          onClick={() => navigate('/reservation/trouver')}
-          className="text-sm font-medium text-forest-700 hover:underline"
-        >
-          Voir / modifier ma réservation
-        </button>
+        {!espaceClient && (
+          <button
+            type="button"
+            onClick={() => navigate('/reservation/trouver')}
+            className="text-sm font-medium text-forest-700 hover:underline"
+          >
+            Voir / modifier ma réservation
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4">
