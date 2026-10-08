@@ -12,13 +12,15 @@ export function VehicleDetailPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { fuelLabel, transmissionLabel } = useCatalog()
+  const { fuelLabel, transmissionLabel, labels } = useCatalog()
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
+  const [disponible, setDisponible] = useState<boolean | null>(null)
   const [guest, setGuest] = useState({ name: '', email: '', phone: '' })
   const [method, setMethod] = useState('airtel_money')
+  const [moyensPaiement, setMoyensPaiement] = useState<{ slug: string; label: string }[]>([])
 
   const pickupAt = searchParams.get('pickup_at') || ''
   const returnAt = searchParams.get('return_at') || ''
@@ -31,6 +33,61 @@ export function VehicleDetailPage() {
       .then(({ data }) => setVehicle(data.data))
       .finally(() => setLoading(false))
   }, [id])
+
+  useEffect(() => {
+    if (!id || !pickupAt || !returnAt) {
+      setDisponible(null)
+      return
+    }
+    void api
+      .get(`/vehicles/${id}/availability`, {
+        params: { pickup_at: pickupAt, return_at: returnAt },
+      })
+      .then(({ data }) => {
+        setDisponible(!!data.available)
+        if (!data.available) {
+          setError('Ce véhicule n’est pas libre sur ces dates.')
+        } else {
+          setError('')
+        }
+      })
+      .catch(() => setDisponible(null))
+  }, [id, pickupAt, returnAt])
+
+  useEffect(() => {
+    void api
+      .get('/catalog/references', { params: { type: 'payment_method' } })
+      .then(({ data }) => {
+        const liste = (data.data || []) as { slug: string; label: string }[]
+        if (liste.length) {
+          setMoyensPaiement(liste)
+          setMethod((m) => (liste.some((x) => x.slug === m) ? m : liste[0].slug))
+        } else {
+          const fallback = Object.entries(labels.payment_method || {}).map(([slug, label]) => ({
+            slug,
+            label,
+          }))
+          setMoyensPaiement(
+            fallback.length
+              ? fallback
+              : [
+                  { slug: 'airtel_money', label: 'Airtel Money' },
+                  { slug: 'moov_money', label: 'Moov Money' },
+                  { slug: 'card', label: 'Carte bancaire' },
+                  { slug: 'agency_cash', label: 'Acompte + paiement agence' },
+                ],
+          )
+        }
+      })
+      .catch(() => {
+        setMoyensPaiement([
+          { slug: 'airtel_money', label: 'Airtel Money' },
+          { slug: 'moov_money', label: 'Moov Money' },
+          { slug: 'card', label: 'Carte bancaire' },
+          { slug: 'agency_cash', label: 'Acompte + paiement agence' },
+        ])
+      })
+  }, [labels.payment_method])
 
   useEffect(() => {
     if (!user) return
@@ -61,11 +118,40 @@ export function VehicleDetailPage() {
         guest_email: guest.email || undefined,
         guest_phone: guest.phone || undefined,
       })
+      const meta = bookingRes.meta as
+        | {
+            account_created?: boolean
+            show_credentials?: boolean
+            temporary_password?: string | null
+            login_email?: string
+          }
+        | undefined
+
       const bookingId = bookingRes.data.id
       const { data: payRes } = await api.post(`/bookings/${bookingId}/pay`, { method })
-      navigate(`/confirmation/${payRes.data.booking.id}`, {
-        state: { booking: payRes.data.booking, payment: payRes.data.payment },
-      })
+      const confirmationState = {
+        booking: payRes.data.booking,
+        payment: payRes.data.payment,
+        accountCreated: !!meta?.account_created,
+        showCredentials: !!meta?.show_credentials,
+        temporaryPassword: meta?.temporary_password || null,
+        loginEmail: meta?.login_email || guest.email,
+      }
+      // Persiste les identifiants si l’utilisateur rafraîchit la page de confirmation.
+      try {
+        sessionStorage.setItem(
+          `locagabon_confirm_${payRes.data.booking.id}`,
+          JSON.stringify({
+            showCredentials: confirmationState.showCredentials,
+            temporaryPassword: confirmationState.temporaryPassword,
+            loginEmail: confirmationState.loginEmail,
+            accountCreated: confirmationState.accountCreated,
+          }),
+        )
+      } catch {
+        // ignore
+      }
+      navigate(`/confirmation/${payRes.data.booking.id}`, { state: confirmationState })
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })
@@ -160,6 +246,12 @@ export function VehicleDetailPage() {
             <li>✓ Mode : {vehicle.booking_mode === 'instant' ? 'Réservation instantanée' : 'Sur demande'}</li>
           </ul>
 
+          {pickupAt && returnAt && disponible === true && (
+            <p className="mt-4 rounded-lg bg-forest-50 px-3 py-2 text-sm font-medium text-forest-800">
+              Véhicule disponible sur ces dates
+            </p>
+          )}
+
           <form onSubmit={onBook} className="mt-6 space-y-3">
             {!pickupAt && (
               <p className="rounded-lg bg-gold-400/20 px-3 py-2 text-sm">
@@ -193,18 +285,23 @@ export function VehicleDetailPage() {
               onChange={(e) => setMethod(e.target.value)}
               className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
             >
-              <option value="airtel_money">Airtel Money</option>
-              <option value="moov_money">Moov Money</option>
-              <option value="card">Carte bancaire</option>
-              <option value="agency_cash">Acompte + paiement agence</option>
+              {moyensPaiement.map((m) => (
+                <option key={m.slug} value={m.slug}>
+                  {m.label}
+                </option>
+              ))}
             </select>
             {error && <p className="text-sm text-red-700">{error}</p>}
             <button
               type="submit"
-              disabled={paying || !pickupAt}
+              disabled={paying || !pickupAt || disponible === false}
               className="w-full rounded-xl bg-forest-800 py-3 font-bold text-white hover:bg-forest-700 disabled:opacity-50"
             >
-              {paying ? 'Paiement…' : 'Réserver et payer'}
+              {paying
+                ? 'Paiement…'
+                : disponible === false
+                  ? 'Indisponible sur ces dates'
+                  : 'Réserver et payer'}
             </button>
           </form>
         </aside>

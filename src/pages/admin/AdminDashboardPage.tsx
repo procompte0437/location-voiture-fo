@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useOutletContext } from 'react-router-dom'
 import { AdminShell } from '../../components/admin/AdminShell'
 import { ContentLoader } from '../../components/ui/Spinner'
+import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
 
@@ -74,14 +75,22 @@ export function AdminLayout() {
   const [message, setMessage] = useState('')
 
   async function reload() {
-    const [d, p, a] = await Promise.all([
+    const estSuperAdmin = user?.role === 'super_admin'
+    const requetes = [
       api.get('/admin/dashboard'),
-      api.get('/admin/partners', { params: { status: 'pending' } }),
       api.get('/admin/audit-logs'),
-    ])
-    setStats(d.data.data)
-    setPartners(p.data.data || [])
-    setLogs(a.data.data || [])
+      ...(estSuperAdmin
+        ? [api.get('/admin/partners', { params: { per_page: 100 } })]
+        : []),
+    ]
+    const resultats = await Promise.all(requetes)
+    setStats(resultats[0].data.data)
+    setLogs(resultats[1].data.data || [])
+    if (estSuperAdmin && resultats[2]) {
+      setPartners(resultats[2].data.data || [])
+    } else {
+      setPartners([])
+    }
   }
 
   useEffect(() => {
@@ -91,12 +100,14 @@ export function AdminLayout() {
   }, [user])
 
   async function approve(id: number) {
+    if (user?.role !== 'super_admin') return
     await api.post(`/admin/partners/${id}/approve`)
     setMessage(`Partenaire #${id} validé`)
     await reload()
   }
 
   async function reject(id: number) {
+    if (user?.role !== 'super_admin') return
     const reason = window.prompt('Motif du refus ?') || 'Dossier incomplet'
     await api.post(`/admin/partners/${id}/reject`, { reason })
     setMessage(`Partenaire #${id} refusé`)
@@ -107,10 +118,18 @@ export function AdminLayout() {
     return <Navigate to="/" replace />
   }
 
+  // Les partenaires n’ont jamais accès à la console admin.
+  if (!loading && user && (user.role === 'partner' || user.role === 'partner_agent')) {
+    return <Navigate to="/partenaire" replace />
+  }
+
+  // Coque admin toujours visible ; le spinner reste dans les pages / zones de données.
   return (
     <AdminShell>
       {loading ? (
-        <ContentLoader />
+        <div className="rounded-xl border border-black/8 bg-white">
+          <ContentLoader label="Chargement du compte…" />
+        </div>
       ) : (
         <Outlet
           context={
@@ -131,7 +150,10 @@ export function AdminLayout() {
 }
 
 export function AdminDashboardPage() {
+  const { user } = useAuth()
   const { stats, partners, message } = useAdminData()
+  const partenairesEnAttente = partners.filter((p) => p.status === 'pending')
+  const estSuperAdmin = user?.role === 'super_admin'
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
@@ -139,6 +161,7 @@ export function AdminDashboardPage() {
         title="Tableau de bord"
         subtitle="Vue temps réel de la marketplace LocaGabon."
         action={
+          estSuperAdmin ? (
           <Link
             to="/admin/validation"
             className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 transition hover:bg-[#f4f5f4]"
@@ -150,6 +173,7 @@ export function AdminDashboardPage() {
               </span>
             ) : null}
           </Link>
+          ) : undefined
         }
       />
 
@@ -197,7 +221,7 @@ export function AdminDashboardPage() {
             <ContentLoader />
           ) : (
           <div className="space-y-2">
-            {partners.slice(0, 3).map((p) => (
+            {partenairesEnAttente.slice(0, 3).map((p) => (
               <div
                 key={p.id}
                 className="flex items-center justify-between gap-3 rounded-lg border border-black/6 bg-[#f8f9f8] px-4 py-3"
@@ -213,7 +237,7 @@ export function AdminDashboardPage() {
                 </span>
               </div>
             ))}
-            {partners.length === 0 && (
+            {partenairesEnAttente.length === 0 && (
               <p className="text-sm text-ink-500">Aucune demande en attente.</p>
             )}
           </div>
@@ -267,59 +291,145 @@ export function AdminDashboardPage() {
 }
 
 export function AdminValidationPage() {
-  const { stats, partners, message, approve, reject } = useAdminData()
+  const { user } = useAuth()
+  const { stats, partners, message, approve, reject, reload } = useAdminData()
+  const [filtreStatut, setFiltreStatut] = useState('pending')
+
+  if (user?.role !== 'super_admin') {
+    return <Navigate to="/admin" replace />
+  }
+
+  const libelleStatut = (s: string) => {
+    const map: Record<string, string> = {
+      pending: 'En attente',
+      approved: 'Validé',
+      rejected: 'Refusé',
+      suspended: 'Suspendu',
+      info_requested: 'Infos demandées',
+    }
+    return map[s] || s
+  }
+
+  const partenairesFiltres =
+    filtreStatut === 'all'
+      ? partners
+      : partners.filter((p) => p.status === filtreStatut)
+
+  // Aperçu dashboard : uniquement les en attente.
+  const enAttente = partners.filter((p) => p.status === 'pending')
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="File de validation"
-        subtitle="Étudiez les dossiers partenaires avant toute publication d’offre."
+        subtitle="Consultez les dossiers partenaires validés et non validés."
       />
       {message && (
         <div className="mb-6 rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-ink-700">
           {message}
         </div>
       )}
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {(
+          [
+            ['pending', `En attente (${enAttente.length})`],
+            ['approved', `Validés (${partners.filter((p) => p.status === 'approved').length})`],
+            ['rejected', `Refusés (${partners.filter((p) => p.status === 'rejected').length})`],
+            ['all', `Tous (${partners.length})`],
+          ] as const
+        ).map(([cle, libelle]) => (
+          <button
+            key={cle}
+            type="button"
+            onClick={() => setFiltreStatut(cle)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+              filtreStatut === cle
+                ? 'bg-[#0b3d2e] text-white'
+                : 'border border-black/10 bg-white text-ink-700 hover:bg-[#f4f5f4]'
+            }`}
+          >
+            {libelle}
+          </button>
+        ))}
+      </div>
+
       {!stats ? (
         <div className="rounded-xl border border-black/8 bg-white">
           <ContentLoader />
         </div>
-      ) : partners.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-black/12 bg-white p-10 text-center text-ink-500">
-            Aucune demande en attente.
-          </div>
       ) : (
-      <div className="space-y-3">
-        {partners.map((p) => (
-          <div
-            key={p.id}
-            className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-black/8 bg-white p-5"
-          >
-            <div>
-              <p className="text-xl font-semibold text-ink-900">{p.company_name || p.manager_name}</p>
-              <p className="mt-1 text-sm text-ink-500">
-                {p.type} · {p.city} · {p.owner?.email}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void approve(p.id)}
-                className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0a3427]"
-              >
-                Valider
-              </button>
-              <button
-                type="button"
-                onClick={() => void reject(p.id)}
-                className="rounded-xl border border-black/12 px-4 py-2.5 text-sm font-semibold text-ink-700 hover:bg-[#f4f5f4]"
-              >
-                Refuser
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+        <TableauDonnees
+          colonnes={[
+            {
+              cle: 'company',
+              libelle: 'Partenaire',
+              rendu: (p) => (
+                <div>
+                  <p className="font-semibold text-ink-900">{p.company_name || p.manager_name}</p>
+                  <p className="text-xs text-ink-500">#{p.id}</p>
+                </div>
+              ),
+            },
+            {
+              cle: 'type',
+              libelle: 'Type / Ville',
+              rendu: (p) => (
+                <span>
+                  {p.type} · {p.city || '—'}
+                </span>
+              ),
+            },
+            {
+              cle: 'owner',
+              libelle: 'Compte',
+              rendu: (p) => (
+                <div>
+                  <p>{p.owner?.name || '—'}</p>
+                  <p className="text-xs text-ink-500">{p.owner?.email}</p>
+                </div>
+              ),
+            },
+            {
+              cle: 'status',
+              libelle: 'Statut',
+              rendu: (p) => (
+                <span className="inline-flex rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-0.5 text-[11px] font-medium">
+                  {libelleStatut(p.status)}
+                </span>
+              ),
+            },
+          ]}
+          donnees={partenairesFiltres}
+          cleLigne={(p) => p.id}
+          champsRecherche={(p) =>
+            `${p.company_name} ${p.manager_name} ${p.city} ${p.type} ${p.owner?.email} ${p.owner?.name} ${p.status}`
+          }
+          surActualiser={reload}
+          messageVide="Aucun partenaire pour ce filtre."
+          actions={(p) =>
+            p.status === 'pending' || p.status === 'info_requested' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void approve(p.id)}
+                  className="rounded-lg bg-[#0b3d2e] px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  Valider
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void reject(p.id)}
+                  className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-ink-700"
+                >
+                  Refuser
+                </button>
+              </>
+            ) : (
+              <span className="text-xs text-ink-400">—</span>
+            )
+          }
+        />
       )}
     </div>
   )

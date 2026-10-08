@@ -22,6 +22,8 @@ interface AuthContextValue {
     password_confirmation: string
     role?: string
   }) => Promise<User>
+  /** Connexion après création auto du compte à la réservation. */
+  appliquerSession: (token: string, user?: User | null) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
 }
@@ -75,6 +77,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user as User
   }, [])
 
+  const appliquerSession = useCallback(async (token: string, utilisateur?: User | null) => {
+    localStorage.setItem('locagabon_token', token)
+    if (utilisateur) {
+      setUser(utilisateur)
+      return
+    }
+    try {
+      const { data } = await api.get('/auth/me')
+      setUser(data.user)
+    } catch {
+      localStorage.removeItem('locagabon_token')
+      setUser(null)
+    }
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout')
@@ -86,8 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refresh }),
-    [user, loading, login, register, logout, refresh],
+    () => ({ user, loading, login, register, appliquerSession, logout, refresh }),
+    [user, loading, login, register, appliquerSession, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

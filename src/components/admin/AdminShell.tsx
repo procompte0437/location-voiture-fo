@@ -8,7 +8,7 @@ type NavItem = {
   end?: boolean
 }
 
-const NAV: { title: string; items: NavItem[] }[] = [
+const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
   {
     title: 'Pilotage',
     items: [
@@ -16,12 +16,19 @@ const NAV: { title: string; items: NavItem[] }[] = [
       { to: '/admin/validation', label: 'Validation' },
       { to: '/admin/audit', label: 'Journal d’audit' },
     ],
+    // Validation = gestion dossiers partenaires → super admin
+    superAdminSeul: false,
   },
   {
     title: 'Catalogue public',
     items: [
-      { to: '/admin/lieux', label: 'Lieux' },
       { to: '/admin/vehicules', label: 'Véhicules' },
+    ],
+  },
+  {
+    title: 'Référentiel',
+    items: [
+      { to: '/admin/referentiel', label: 'Lieux & listes' },
     ],
   },
   {
@@ -33,6 +40,10 @@ const NAV: { title: string; items: NavItem[] }[] = [
     ],
   },
 ]
+
+/** Entrées réservées au super admin (comptes + validation partenaires). */
+const ROUTES_SUPER_ADMIN = new Set(['/admin/validation', '/admin/comptes'])
+
 
 const ICONS: Record<string, ReactNode> = {
   '/admin': (
@@ -84,18 +95,24 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M12 3v18M7 8h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8" strokeLinecap="round" />
     </svg>
   ),
+  '/admin/referentiel': (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />
+      <circle cx="18" cy="18" r="2" />
+    </svg>
+  ),
 }
 
 const PAGE_HINTS: Record<string, string> = {
   '/admin': 'Vue d’ensemble marketplace',
   '/admin/validation': 'Dossiers partenaires à traiter',
   '/admin/audit': 'Piste d’audit immuable',
-  '/admin/lieux': 'Destinations du catalogue public',
   '/admin/vehicules': 'CRUD catalogue — filtres, détail, publication',
   '/admin/vehicules/nouveau': 'Création d’une nouvelle offre véhicule',
   '/admin/comptes': 'Comptes clients, partenaires et admins',
   '/admin/reservations': 'Flux de réservations',
   '/admin/finances': 'GMV et commissions',
+  '/admin/referentiel': 'Lieux, marques, modèles et listes déroulantes',
 }
 
 function initials(name?: string) {
@@ -111,11 +128,17 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const location = useLocation()
+  const estSuperAdmin = user?.role === 'super_admin'
+  const menu = NAV.map((groupe) => ({
+    ...groupe,
+    items: groupe.items.filter((item) => estSuperAdmin || !ROUTES_SUPER_ADMIN.has(item.to)),
+  })).filter((groupe) => groupe.items.length > 0)
+
   const hint =
     PAGE_HINTS[location.pathname] ||
     (location.pathname.startsWith('/admin/vehicules/')
       ? 'Fiche véhicule — détail et édition'
-      : 'Console super admin')
+      : 'Console admin')
 
   return (
     <div className="admin-shell min-h-screen bg-[#f4f5f4] text-ink-900">
@@ -168,7 +191,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
-            {NAV.map((group) => (
+            {menu.map((group) => (
               <div key={group.title}>
                 <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
                   {group.title}

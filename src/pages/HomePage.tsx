@@ -63,7 +63,7 @@ export function HomePage() {
             <p className="mt-3 text-sm text-white/70">{c['home.hero_promises']}</p>
           </div>
 
-          <div className="max-w-3xl animate-[fadeUp_0.9s_ease-out]">
+          <div className="w-full max-w-5xl animate-[fadeUp_0.9s_ease-out]">
             <SearchForm />
           </div>
         </div>

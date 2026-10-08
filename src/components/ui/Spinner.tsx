@@ -8,9 +8,15 @@ export function Spinner({ className = 'h-5 w-5' }: { className?: string }) {
   )
 }
 
-export function ContentLoader({ label = 'Chargement…' }: { label?: string }) {
+export function ContentLoader({
+  label = 'Chargement…',
+  className = 'py-10',
+}: {
+  label?: string
+  className?: string
+}) {
   return (
-    <div className="flex items-center justify-center gap-2 py-16 text-sm text-ink-500">
+    <div className={`flex items-center justify-center gap-2 text-sm text-ink-500 ${className}`}>
       <Spinner />
       <span>{label}</span>
     </div>

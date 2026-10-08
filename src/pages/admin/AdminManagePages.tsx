@@ -1,5 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { ContentLoader } from '../../components/ui/Spinner'
+import { TableauDonnees } from '../../components/ui/TableauDonnees'
+import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
 
 function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -41,6 +44,7 @@ function PillTabs({
 }
 
 export function AdminAccountsPage() {
+  const { user } = useAuth()
   const [users, setUsers] = useState<
     {
       id: number
@@ -50,6 +54,7 @@ export function AdminAccountsPage() {
       role: string
       status: string
       created_at: string
+      owned_partner?: { company_name?: string; status?: string } | null
     }[]
   >([])
   const [role, setRole] = useState('')
@@ -67,20 +72,37 @@ export function AdminAccountsPage() {
   }
 
   useEffect(() => {
-    void load().catch(() => undefined)
-  }, [role])
+    if (user?.role === 'super_admin') {
+      void load().catch(() => undefined)
+    }
+  }, [role, user?.role])
 
   async function setStatus(id: number, status: string) {
     await api.patch(`/admin/users/${id}/status`, { status })
-    setMsg(`Compte #${id} → ${status}`)
+    setMsg(`Compte #${id} ? ${status}`)
     await load()
+  }
+
+  if (user?.role !== 'super_admin') {
+    return <Navigate to="/admin" replace />
+  }
+
+  const libelleRole = (r: string) => {
+    const map: Record<string, string> = {
+      customer: 'R�servateur',
+      partner: 'Partenaire',
+      partner_agent: 'Agent partenaire',
+      admin: 'Admin',
+      super_admin: 'Super admin',
+    }
+    return map[r] || r
   }
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Comptes"
-        subtitle="L’admin gère les comptes affichés et actifs sur la plateforme (clients, partenaires, admins)."
+        subtitle="R�serv� au super admin : gestion de tous les partenaires et des comptes r�servateurs."
       />
       {msg && <p className="mb-4 text-sm text-ink-600">{msg}</p>}
       <PillTabs
@@ -88,64 +110,66 @@ export function AdminAccountsPage() {
         onChange={setRole}
         options={[
           ['', 'Tous'],
-          ['customer', 'Clients'],
+          ['customer', 'R�servateurs'],
           ['partner', 'Partenaires'],
           ['admin', 'Admins'],
           ['super_admin', 'Super admin'],
         ]}
       />
-      <div className="overflow-hidden rounded-xl border border-black/8 bg-white">
-        {loading ? (
-          <ContentLoader />
-        ) : (
+      <TableauDonnees
+        colonnes={[
+          { cle: 'name', libelle: 'Nom' },
+          { cle: 'email', libelle: 'Email' },
+          {
+            cle: 'role',
+            libelle: 'R�le',
+            rendu: (u) => libelleRole(u.role),
+          },
+          {
+            cle: 'partner',
+            libelle: 'Dossier partenaire',
+            rendu: (u) =>
+              u.owned_partner?.company_name
+                ? `${u.owned_partner.company_name} (${u.owned_partner.status || '?'})`
+                : '?',
+          },
+          {
+            cle: 'status',
+            libelle: 'Statut',
+            rendu: (u) => <span className="capitalize">{u.status}</span>,
+          },
+        ]}
+        donnees={users}
+        cleLigne={(u) => u.id}
+        champsRecherche={(u) =>
+          `${u.name} ${u.email} ${u.role} ${u.status} ${u.owned_partner?.company_name || ''}`
+        }
+        surActualiser={load}
+        chargement={loading}
+        messageVide="Aucun compte."
+        actions={(u) => (
           <>
-        <table className="w-full text-left text-sm">
-          <thead className="bg-[#f4f5f4] text-[11px] uppercase tracking-[0.12em] text-ink-400">
-            <tr>
-              <th className="px-4 py-3 font-medium">Nom</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Rôle</th>
-              <th className="px-4 py-3 font-medium">Statut</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-black/6">
-                <td className="px-4 py-3 font-medium text-ink-900">{u.name}</td>
-                <td className="px-4 py-3 text-ink-500">{u.email}</td>
-                <td className="px-4 py-3 capitalize text-ink-700">{u.role}</td>
-                <td className="px-4 py-3 capitalize text-ink-700">{u.status}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    {u.status !== 'active' && (
-                      <button
-                        type="button"
-                        className="rounded-lg bg-[#0b3d2e] px-2 py-1 text-xs text-white"
-                        onClick={() => void setStatus(u.id, 'active')}
-                      >
-                        Activer
-                      </button>
-                    )}
-                    {u.status === 'active' && (
-                      <button
-                        type="button"
-                        className="rounded-lg border border-black/12 px-2 py-1 text-xs text-ink-700"
-                        onClick={() => void setStatus(u.id, 'suspended')}
-                      >
-                        Suspendre
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {users.length === 0 && <p className="p-6 text-ink-500">Aucun compte.</p>}
+            {u.status !== 'active' && (
+              <button
+                type="button"
+                className="rounded-lg bg-[#0b3d2e] px-2 py-1 text-xs text-white"
+                onClick={() => void setStatus(u.id, 'active')}
+              >
+                Activer
+              </button>
+            )}
+            {u.status === 'active' && u.role !== 'super_admin' && (
+              <button
+                type="button"
+                className="rounded-lg border border-black/12 px-2 py-1 text-xs text-ink-700"
+                onClick={() => void setStatus(u.id, 'suspended')}
+              >
+                Suspendre
+              </button>
+            )}
           </>
         )}
-      </div>
+      />
     </div>
   )
 }
@@ -180,8 +204,8 @@ export function AdminBookingsPage() {
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
-        title="Réservations"
-        subtitle="Toutes les réservations de la marketplace — suivi admin."
+        title="R�servations"
+        subtitle="Toutes les r�servations de la marketplace ? suivi admin."
       />
       {loading ? (
         <div className="rounded-xl border border-black/8 bg-white">
@@ -197,13 +221,13 @@ export function AdminBookingsPage() {
                   {b.vehicle ? `${b.vehicle.brand} ${b.vehicle.model}` : b.reference}
                 </p>
                 <p className="text-sm text-ink-500">
-                  {b.reference} · {b.customer?.name || b.guest_name || 'Invité'}
-                  {b.partner?.company_name ? ` · ${b.partner.company_name}` : ''}
+                  {b.reference} � {b.customer?.name || b.guest_name || 'Invit�'}
+                  {b.partner?.company_name ? ` � ${b.partner.company_name}` : ''}
                 </p>
                 <p className="text-xs text-ink-500">
-                  {new Date(b.pickup_at).toLocaleString('fr-FR')} →{' '}
+                  {new Date(b.pickup_at).toLocaleString('fr-FR')} ?{' '}
                   {new Date(b.return_at).toLocaleString('fr-FR')}
-                  {b.pickup_location ? ` · ${b.pickup_location.name}` : ''}
+                  {b.pickup_location ? ` � ${b.pickup_location.name}` : ''}
                 </p>
               </div>
               <div className="text-right">
@@ -216,7 +240,7 @@ export function AdminBookingsPage() {
         ))}
         {bookings.length === 0 && (
           <div className="rounded-xl border border-dashed border-black/12 bg-white p-8 text-center text-ink-500">
-            Aucune réservation pour le moment.
+            Aucune r�servation pour le moment.
           </div>
         )}
       </div>
@@ -239,16 +263,16 @@ export function AdminFinancesPage() {
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Finances"
-        subtitle="GMV et commissions prélevées (0 % au lancement, configurable ensuite)."
+        subtitle="GMV et commissions pr�lev�es (0 % au lancement, configurable ensuite)."
       />
       {stats ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             ['GMV (volume affaires)', formatXaf(stats.gmv)],
             ['Commissions plateforme', formatXaf(stats.commissions)],
-            ['Réservations payées / confirmées', stats.bookings_count],
-            ['Partenaires validés', stats.partners_approved],
-            ['Véhicules publiés', stats.vehicles_published],
+            ['R�servations pay�es / confirm�es', stats.bookings_count],
+            ['Partenaires valid�s', stats.partners_approved],
+            ['V�hicules publi�s', stats.vehicles_published],
             ['Utilisateurs', stats.users_count],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-xl border border-black/8 bg-white p-5">
@@ -266,156 +290,7 @@ export function AdminFinancesPage() {
   )
 }
 
+/** Redirige vers le referentiel unifie (onglet Lieux). */
 export function AdminLocationsPage() {
-  const [locations, setLocations] = useState<
-    {
-      id: number
-      name: string
-      slug: string
-      type: string
-      city?: string
-      is_popular: boolean
-      is_active: boolean
-    }[]
-  >([])
-  const [form, setForm] = useState({
-    name: '',
-    type: 'city',
-    city: '',
-    is_popular: true,
-    is_active: true,
-  })
-  const [msg, setMsg] = useState('')
-  const [loading, setLoading] = useState(true)
-
-  async function load(showSpinner = false) {
-    if (showSpinner) setLoading(true)
-    try {
-      const { data } = await api.get('/admin/locations')
-      setLocations(data.data || [])
-    } finally {
-      if (showSpinner) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    void load(true).catch(() => undefined)
-  }, [])
-
-  async function onCreate(e: FormEvent) {
-    e.preventDefault()
-    await api.post('/admin/locations', form)
-    setMsg('Lieu ajouté — visible sur la recherche / accueil si actif & populaire.')
-    setForm({ name: '', type: 'city', city: '', is_popular: true, is_active: true })
-    await load()
-  }
-
-  async function toggle(id: number, patch: Record<string, boolean>) {
-    await api.patch(`/admin/locations/${id}`, patch)
-    await load()
-  }
-
-  async function remove(id: number) {
-    if (!window.confirm('Supprimer ce lieu ?')) return
-    await api.delete(`/admin/locations/${id}`)
-    setMsg('Lieu supprimé')
-    await load()
-  }
-
-  return (
-    <div className="animate-[adminIn_0.45s_ease-out]">
-      <PageHeader
-        title="Lieux & destinations"
-        subtitle="Renseignés uniquement par l’admin : villes, aéroports et quartiers affichés sur le site public."
-      />
-      {msg && <p className="mb-4 text-sm text-ink-600">{msg}</p>}
-
-      <form
-        onSubmit={onCreate}
-        className="mb-6 grid gap-3 rounded-xl border border-black/8 bg-white p-5 md:grid-cols-2 lg:grid-cols-5"
-      >
-        <input
-          required
-          placeholder="Nom (ex. Port-Gentil)"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          className="rounded-xl border border-black/10 px-3 py-2.5 lg:col-span-2"
-        />
-        <select
-          value={form.type}
-          onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-          className="rounded-xl border border-black/10 px-3 py-2.5"
-        >
-          <option value="city">Ville</option>
-          <option value="airport">Aéroport</option>
-          <option value="district">Quartier</option>
-          <option value="agency_point">Point agence</option>
-        </select>
-        <input
-          placeholder="Ville liée"
-          value={form.city}
-          onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-          className="rounded-xl border border-black/10 px-3 py-2.5"
-        />
-        <button
-          type="submit"
-          className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 font-semibold text-white hover:bg-[#0a3427]"
-        >
-          Ajouter
-        </button>
-      </form>
-
-      {loading ? (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
-        </div>
-      ) : (
-      <div className="space-y-2">
-        {locations.map((loc) => (
-          <div
-            key={loc.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/8 bg-white px-4 py-3"
-          >
-            <div>
-              <p className="font-semibold text-ink-900">{loc.name}</p>
-              <p className="text-xs text-ink-500">
-                {loc.type}
-                {loc.city ? ` · ${loc.city}` : ''} · {loc.slug}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void toggle(loc.id, { is_popular: !loc.is_popular })}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  loc.is_popular
-                    ? 'bg-[#0b3d2e]/10 text-[#0b3d2e]'
-                    : 'bg-[#f0f1f0] text-ink-500'
-                }`}
-              >
-                {loc.is_popular ? 'Populaire' : 'Standard'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void toggle(loc.id, { is_active: !loc.is_active })}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  loc.is_active ? 'bg-[#0b3d2e] text-white' : 'bg-[#f0f1f0] text-ink-500'
-                }`}
-              >
-                {loc.is_active ? 'Actif' : 'Inactif'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void remove(loc.id)}
-                className="rounded-full border border-black/12 px-2.5 py-1 text-xs text-ink-700"
-              >
-                Supprimer
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      )}
-    </div>
-  )
+  return <Navigate to="/admin/referentiel?onglet=lieux" replace />
 }

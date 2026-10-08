@@ -12,6 +12,12 @@ type Labels = {
   categories: Record<string, string>
   fuel: Record<string, string>
   transmission: Record<string, string>
+  partner_type?: Record<string, string>
+  driver_age?: Record<string, string>
+  booking_mode?: Record<string, string>
+  cancellation_policy?: Record<string, string>
+  payment_method?: Record<string, string>
+  location_type?: Record<string, string>
 }
 
 type CatalogContextValue = {

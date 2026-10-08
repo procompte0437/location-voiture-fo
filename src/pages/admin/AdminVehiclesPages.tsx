@@ -618,6 +618,10 @@ function VehicleForm({
   const [partners, setPartners] = useState<PartnerOption[]>([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [optsFuel, setOptsFuel] = useState<{ slug: string; label: string }[]>([])
+  const [optsTransmission, setOptsTransmission] = useState<{ slug: string; label: string }[]>([])
+  const [optsBooking, setOptsBooking] = useState<{ slug: string; label: string }[]>([])
+  const [optsCancel, setOptsCancel] = useState<{ slug: string; label: string }[]>([])
 
   useEffect(() => {
     if (initial) setForm(initial)
@@ -628,6 +632,18 @@ function VehicleForm({
       .get('/admin/partners', { params: { per_page: 100 } })
       .then(({ data }) => setPartners(data.data || []))
       .catch(() => undefined)
+
+    void Promise.all([
+      api.get('/catalog/references', { params: { type: 'fuel' } }),
+      api.get('/catalog/references', { params: { type: 'transmission' } }),
+      api.get('/catalog/references', { params: { type: 'booking_mode' } }),
+      api.get('/catalog/references', { params: { type: 'cancellation_policy' } }),
+    ]).then(([fuel, transm, booking, cancel]) => {
+      setOptsFuel(fuel.data.data || [])
+      setOptsTransmission(transm.data.data || [])
+      setOptsBooking(booking.data.data || [])
+      setOptsCancel(cancel.data.data || [])
+    })
   }, [])
 
   async function handleSubmit(e: FormEvent) {
@@ -777,16 +793,26 @@ function VehicleForm({
               value={form.transmission}
               onChange={(e) => set('transmission', e.target.value)}
             >
-              <option value="manual">Manuelle</option>
-              <option value="automatic">Automatique</option>
+              {(optsTransmission.length
+                ? optsTransmission
+                : Object.entries(labels.transmission).map(([slug, label]) => ({ slug, label }))
+              ).map((o) => (
+                <option key={o.slug} value={o.slug}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Carburant *">
             <select className={inputClass} value={form.fuel} onChange={(e) => set('fuel', e.target.value)}>
-              <option value="petrol">Essence</option>
-              <option value="diesel">Diesel</option>
-              <option value="hybrid">Hybride</option>
-              <option value="electric">Électrique</option>
+              {(optsFuel.length
+                ? optsFuel
+                : Object.entries(labels.fuel).map(([slug, label]) => ({ slug, label }))
+              ).map((o) => (
+                <option key={o.slug} value={o.slug}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Âge min. conducteur">
@@ -858,8 +884,17 @@ function VehicleForm({
               value={form.booking_mode}
               onChange={(e) => set('booking_mode', e.target.value)}
             >
-              <option value="instant">Instantanée</option>
-              <option value="on_request">Sur demande</option>
+              {(optsBooking.length
+                ? optsBooking
+                : [
+                    { slug: 'instant', label: 'Instantanée' },
+                    { slug: 'on_request', label: 'Sur demande' },
+                  ]
+              ).map((o) => (
+                <option key={o.slug} value={o.slug}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Politique d’annulation">
@@ -868,9 +903,18 @@ function VehicleForm({
               value={form.cancellation_policy}
               onChange={(e) => set('cancellation_policy', e.target.value)}
             >
-              <option value="flexible">Flexible</option>
-              <option value="moderate">Modérée</option>
-              <option value="strict">Stricte</option>
+              {(optsCancel.length
+                ? optsCancel
+                : [
+                    { slug: 'flexible', label: 'Flexible' },
+                    { slug: 'moderate', label: 'Modérée' },
+                    { slug: 'strict', label: 'Stricte' },
+                  ]
+              ).map((o) => (
+                <option key={o.slug} value={o.slug}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="URL photo de couverture" className="md:col-span-2 lg:col-span-3">

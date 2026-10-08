@@ -10,11 +10,18 @@ import {
   GuestBookingLookupPage,
   MyBookingsPage,
 } from './pages/client/BookingPages'
+import { DispositionPartenaire } from './components/partenaire/CoquePartenaire'
 import {
-  BecomePartnerPage,
-  PartnerDashboardPage,
-  PartnerRegisterPage,
-} from './pages/partner/PartnerPages'
+  PageAccueilPartenaire,
+  PageAidePartenaire,
+  PageDevenirPartenaire,
+  PageInscriptionPartenaire,
+  PageMesClients,
+  PageMesReservations,
+  PageMesVoitures,
+  PageNouvelleVoiture,
+  PageReferentielPartenaire,
+} from './pages/partenaire/PagesPartenaire'
 import {
   AdminAuditPage,
   AdminDashboardPage,
@@ -27,6 +34,7 @@ import {
   AdminFinancesPage,
   AdminLocationsPage,
 } from './pages/admin/AdminManagePages'
+import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
 import {
   AdminVehicleCreatePage,
   AdminVehicleDetailPage,
@@ -50,9 +58,17 @@ export default function App() {
           <Route path="/mes-reservations" element={<MyBookingsPage />} />
           <Route path="/reservation/trouver" element={<GuestBookingLookupPage />} />
           <Route path="/confirmation/:id" element={<ConfirmationPage />} />
-          <Route path="/devenir-partenaire" element={<BecomePartnerPage />} />
-          <Route path="/partenaire/inscription" element={<PartnerRegisterPage />} />
-          <Route path="/partenaire" element={<PartnerDashboardPage />} />
+          <Route path="/devenir-partenaire" element={<PageDevenirPartenaire />} />
+          <Route path="/partenaire/inscription" element={<PageInscriptionPartenaire />} />
+          <Route path="/partenaire" element={<DispositionPartenaire />}>
+            <Route index element={<PageAccueilPartenaire />} />
+            <Route path="voitures" element={<PageMesVoitures />} />
+            <Route path="voitures/nouvelle" element={<PageNouvelleVoiture />} />
+            <Route path="referentiel" element={<PageReferentielPartenaire />} />
+            <Route path="reservations" element={<PageMesReservations />} />
+            <Route path="clients" element={<PageMesClients />} />
+            <Route path="aide" element={<PageAidePartenaire />} />
+          </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="validation" element={<AdminValidationPage />} />
@@ -65,6 +81,7 @@ export default function App() {
             <Route path="vehicules/:id/modifier" element={<AdminVehicleEditPage />} />
             <Route path="reservations" element={<AdminBookingsPage />} />
             <Route path="finances" element={<AdminFinancesPage />} />
+            <Route path="referentiel" element={<AdminReferentielPage />} />
           </Route>
           <Route path="/faq" element={<FaqPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
