@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ContentLoader } from './Spinner'
 
 /** Définition d’une colonne du tableau. */
@@ -28,6 +28,8 @@ type PropsTableauDonnees<T> = {
   taillePage?: number
   /** Actions par ligne (boutons à droite). */
   actions?: (ligne: T) => ReactNode
+  /** Contenu déplié sous la ligne (accordéon Détail / Replier). */
+  renduDetail?: (ligne: T) => ReactNode
 }
 
 /**
@@ -45,11 +47,20 @@ export function TableauDonnees<T>({
   messageVide = 'Aucun résultat.',
   taillePage = 10,
   actions,
+  renduDetail,
 }: PropsTableauDonnees<T>) {
   const [recherche, setRecherche] = useState('')
   const [page, setPage] = useState(1)
   const [parPage, setParPage] = useState(taillePage)
   const [actualisation, setActualisation] = useState(false)
+  const [ligneOuverte, setLigneOuverte] = useState<string | number | null>(null)
+
+  const montreActions = Boolean(actions || renduDetail)
+  const nbColonnes = colonnes.length + (montreActions ? 1 : 0)
+
+  function basculerDetail(id: string | number) {
+    setLigneOuverte((actuel) => (actuel === id ? null : id))
+  }
 
   // Remet la page à 1 quand le jeu de données ou les filtres changent.
   useEffect(() => {
@@ -141,29 +152,61 @@ export function TableauDonnees<T>({
                       {col.libelle}
                     </th>
                   ))}
-                  {actions && <th className="px-4 py-3 text-right font-semibold">Actions</th>}
+                  {montreActions && (
+                    <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {pageDonnees.map((ligne) => (
-                  <tr key={cleLigne(ligne)} className="hover:bg-black/[0.015]">
-                    {colonnes.map((col) => (
-                      <td key={col.cle} className={`px-4 py-3 text-ink-800 ${col.classe || ''}`}>
-                        {col.rendu
-                          ? col.rendu(ligne)
-                          : (() => {
-                              const valeur = (ligne as unknown as Record<string, unknown>)[col.cle]
-                              return valeur == null || valeur === '' ? '—' : String(valeur)
-                            })()}
-                      </td>
-                    ))}
-                    {actions && (
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">{actions(ligne)}</div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                {pageDonnees.map((ligne) => {
+                  const id = cleLigne(ligne)
+                  const ouverte = ligneOuverte === id
+                  return (
+                    <Fragment key={id}>
+                      <tr className="hover:bg-black/[0.015]">
+                        {colonnes.map((col) => (
+                          <td
+                            key={col.cle}
+                            className={`px-4 py-3 text-ink-800 ${col.classe || ''}`}
+                          >
+                            {col.rendu
+                              ? col.rendu(ligne)
+                              : (() => {
+                                  const valeur = (ligne as unknown as Record<string, unknown>)[
+                                    col.cle
+                                  ]
+                                  return valeur == null || valeur === '' ? '—' : String(valeur)
+                                })()}
+                          </td>
+                        ))}
+                        {montreActions && (
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {renduDetail && (
+                                <button
+                                  type="button"
+                                  onClick={() => basculerDetail(id)}
+                                  aria-expanded={ouverte}
+                                  className="text-sm font-medium text-forest-800 hover:underline"
+                                >
+                                  {ouverte ? 'Replier' : 'Détail'}
+                                </button>
+                              )}
+                              {actions?.(ligne)}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                      {renduDetail && ouverte && (
+                        <tr className="bg-sand-50/80">
+                          <td colSpan={nbColonnes} className="px-4 py-4">
+                            {renduDetail(ligne)}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>

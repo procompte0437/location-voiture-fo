@@ -79,6 +79,12 @@ export function LoginPage() {
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>
+          <Link
+            to="/"
+            className="block w-full rounded-xl border border-sand-200 py-3 text-center text-sm font-medium text-forest-800 hover:bg-sand-50"
+          >
+            Retour à l’accueil
+          </Link>
         </form>
         <p className="mt-4 text-sm text-ink-500">
           Pas encore de compte ?{' '}
@@ -153,6 +159,12 @@ export function RegisterPage() {
           >
             {loading ? 'Création…' : 'S’inscrire'}
           </button>
+          <Link
+            to="/"
+            className="block w-full rounded-xl border border-sand-200 py-3 text-center text-sm font-medium text-forest-800 hover:bg-sand-50"
+          >
+            Retour à l’accueil
+          </Link>
         </form>
         <p className="mt-4 text-sm text-ink-500">
           Déjà un compte ?{' '}

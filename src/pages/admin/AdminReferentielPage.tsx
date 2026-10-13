@@ -46,6 +46,7 @@ const TYPE_LABELS: Record<string, string> = {
   booking_mode: 'Modes de réservation',
   cancellation_policy: 'Politiques d’annulation',
   payment_method: 'Moyens de paiement',
+  vehicle_sort: 'Tris catalogue',
 }
 
 const REF_TYPES = [
@@ -59,6 +60,7 @@ const REF_TYPES = [
   'booking_mode',
   'cancellation_policy',
   'payment_method',
+  'vehicle_sort',
 ]
 
 const TABS = ['lieux', 'categories', ...REF_TYPES] as const
@@ -552,7 +554,9 @@ export function AdminReferentielPage() {
                     ? 'Ex. 25-69 ans'
                     : activeType === 'payment_method'
                       ? 'Ex. Airtel Money'
-                      : 'Ex. Nouveau libellé'
+                      : activeType === 'vehicle_sort'
+                        ? 'Ex. Prix croissant'
+                        : 'Ex. Nouveau libellé'
                 }
                 className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm"
               />
@@ -564,10 +568,23 @@ export function AdminReferentielPage() {
               <input
                 value={form.slug}
                 onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-                placeholder={activeType === 'driver_age' ? '25' : 'auto'}
+                placeholder={
+                  activeType === 'driver_age'
+                    ? '25'
+                    : activeType === 'vehicle_sort'
+                      ? 'price | rating | popularity'
+                      : 'auto'
+                }
                 className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm"
               />
             </label>
+            {activeType === 'vehicle_sort' && (
+              <p className="text-xs text-ink-500 lg:col-span-6">
+                Le code (slug) doit rester <code>price</code>, <code>rating</code> ou{' '}
+                <code>popularity</code> pour que le tri catalogue fonctionne. Vous pouvez
+                modifier le libellé, l’ordre et activer/désactiver chaque option.
+              </p>
+            )}
             <label className="block space-y-1.5">
               <span className="text-xs font-medium uppercase tracking-wide text-ink-400">Ordre</span>
               <input

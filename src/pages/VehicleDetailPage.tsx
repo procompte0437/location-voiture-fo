@@ -1,15 +1,30 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
+import { DateRangePicker } from '../components/search/DateRangePicker'
 import { ContentLoader } from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { useCatalog } from '../context/CatalogContext'
 import api, { formatXaf } from '../lib/api'
 import type { Vehicle } from '../types'
 
+function toLocalInput(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function datesParDefaut() {
+  const pickup = new Date()
+  pickup.setDate(pickup.getDate() + 1)
+  pickup.setHours(10, 0, 0, 0)
+  const ret = new Date(pickup)
+  ret.setDate(ret.getDate() + 3)
+  return { pickup: toLocalInput(pickup), return: toLocalInput(ret) }
+}
+
 export function VehicleDetailPage() {
   const { id } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { fuelLabel, transmissionLabel, labels } = useCatalog()
@@ -21,11 +36,62 @@ export function VehicleDetailPage() {
   const [guest, setGuest] = useState({ name: '', email: '', phone: '' })
   const [method, setMethod] = useState('airtel_money')
   const [moyensPaiement, setMoyensPaiement] = useState<{ slug: string; label: string }[]>([])
+  const [agesConducteur, setAgesConducteur] = useState<{ slug: string; label: string }[]>([])
 
-  const pickupAt = searchParams.get('pickup_at') || ''
-  const returnAt = searchParams.get('return_at') || ''
+  const defauts = useMemo(() => datesParDefaut(), [])
+  const pickupAt = searchParams.get('pickup_at') || defauts.pickup
+  const returnAt = searchParams.get('return_at') || defauts.return
   const driverAge = Number(searchParams.get('driver_age') || 25)
   const locationId = searchParams.get('location_id')
+
+  function majParametre(cle: string, valeur: string) {
+    const next = new URLSearchParams(searchParams)
+    next.set(cle, valeur)
+    setSearchParams(next, { replace: true })
+  }
+
+  function majDates(pickup: string, retour: string) {
+    const next = new URLSearchParams(searchParams)
+    next.set('pickup_at', pickup)
+    next.set('return_at', retour)
+    setSearchParams(next, { replace: true })
+  }
+
+  // Initialise les dates dans l’URL si absentes (arrivée depuis le catalogue).
+  useEffect(() => {
+    if (searchParams.get('pickup_at') && searchParams.get('return_at')) return
+    const next = new URLSearchParams(searchParams)
+    next.set('pickup_at', defauts.pickup)
+    next.set('return_at', defauts.return)
+    if (!next.get('driver_age')) next.set('driver_age', '25')
+    setSearchParams(next, { replace: true })
+    // Une seule fois à l’arrivée sur la fiche.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    void api
+      .get('/catalog/references', { params: { type: 'driver_age' } })
+      .then(({ data }) => {
+        const liste = (data.data || []) as { slug: string; label: string }[]
+        setAgesConducteur(
+          liste.length
+            ? liste
+            : [
+                { slug: '21', label: '18-24 ans' },
+                { slug: '25', label: '25-69 ans' },
+                { slug: '70', label: '70 ans et plus' },
+              ],
+        )
+      })
+      .catch(() => {
+        setAgesConducteur([
+          { slug: '21', label: '18-24 ans' },
+          { slug: '25', label: '25-69 ans' },
+          { slug: '70', label: '70 ans et plus' },
+        ])
+      })
+  }, [])
 
   useEffect(() => {
     void api
@@ -102,7 +168,7 @@ export function VehicleDetailPage() {
     e.preventDefault()
     if (!vehicle) return
     if (!pickupAt || !returnAt) {
-      setError('Relancez une recherche avec des dates pour réserver.')
+      setError('Choisissez une plage de dates pour réserver.')
       return
     }
     setPaying(true)
@@ -253,11 +319,33 @@ export function VehicleDetailPage() {
           )}
 
           <form onSubmit={onBook} className="mt-6 space-y-3">
-            {!pickupAt && (
-              <p className="rounded-lg bg-gold-400/20 px-3 py-2 text-sm">
-                <Link to="/" className="font-semibold underline">Choisissez des dates</Link> pour réserver.
-              </p>
-            )}
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Dates et horaires
+              </span>
+              <DateRangePicker
+                pickupAt={pickupAt}
+                returnAt={returnAt}
+                compact
+                onChange={majDates}
+              />
+            </div>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Âge du conducteur
+              </span>
+              <select
+                value={driverAge}
+                onChange={(e) => majParametre('driver_age', e.target.value)}
+                className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
+              >
+                {agesConducteur.map((a) => (
+                  <option key={a.slug} value={Number(a.slug)}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <input
               placeholder="Nom complet"
               value={guest.name}

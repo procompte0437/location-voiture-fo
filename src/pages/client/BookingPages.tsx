@@ -191,12 +191,32 @@ function nomVehiculeReservation(b: Booking) {
   )
 }
 
+/** Durée en jours (API ou calcul depuis les dates). */
+function dureeJours(b: Booking) {
+  if (b.days_count != null && b.days_count > 0) return b.days_count
+  if (!b.pickup_at || !b.return_at) return 0
+  const a = new Date(b.pickup_at).getTime()
+  const c = new Date(b.return_at).getTime()
+  if (!a || !c || c <= a) return 0
+  return Math.max(1, Math.ceil((c - a) / (1000 * 60 * 60 * 24)))
+}
+
+function libelleDuree(jours: number) {
+  if (jours <= 0) return '—'
+  return `${jours} jour${jours > 1 ? 's' : ''}`
+}
+
+type TriReservations = 'recent' | 'duree_desc' | 'duree_asc'
+type FiltreDureeMin = '' | '3' | '5' | '7'
+
 export function MyBookingsPage() {
   const { user, loading: authLoading } = useAuth()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [error, setError] = useState('')
   const [chargement, setChargement] = useState(true)
   const [filtreStatut, setFiltreStatut] = useState<FiltreStatutClient>('toutes')
+  const [tri, setTri] = useState<TriReservations>('recent')
+  const [dureeMin, setDureeMin] = useState<FiltreDureeMin>('')
 
   async function charger() {
     setChargement(true)
@@ -219,9 +239,23 @@ export function MyBookingsPage() {
 
   const filtrées = useMemo(() => {
     const def = FILTRES_STATUT.find((o) => o.cle === filtreStatut)
-    if (!def?.statuts) return bookings
-    return bookings.filter((b) => def.statuts!.includes(b.status))
-  }, [bookings, filtreStatut])
+    let liste = def?.statuts
+      ? bookings.filter((b) => def.statuts!.includes(b.status))
+      : [...bookings]
+
+    const min = dureeMin ? Number(dureeMin) : 0
+    if (min > 0) {
+      liste = liste.filter((b) => dureeJours(b) >= min)
+    }
+
+    if (tri === 'duree_desc') {
+      liste = [...liste].sort((a, b) => dureeJours(b) - dureeJours(a))
+    } else if (tri === 'duree_asc') {
+      liste = [...liste].sort((a, b) => dureeJours(a) - dureeJours(b))
+    }
+
+    return liste
+  }, [bookings, filtreStatut, tri, dureeMin])
 
   if (authLoading) {
     return (
@@ -279,6 +313,16 @@ export function MyBookingsPage() {
           <TableauDonnees
             colonnes={[
               {
+                cle: 'reference',
+                libelle: 'Référence',
+                classe: 'whitespace-nowrap',
+                rendu: (b) => (
+                  <span className="inline-flex rounded-lg bg-forest-900/5 px-2 py-1 font-mono text-xs font-semibold tracking-wide text-forest-900">
+                    {b.reference || '—'}
+                  </span>
+                ),
+              },
+              {
                 cle: 'vehicule',
                 libelle: 'Véhicule',
                 rendu: (b) => {
@@ -296,10 +340,7 @@ export function MyBookingsPage() {
                           —
                         </span>
                       )}
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-ink-900">{nomVehiculeReservation(b)}</p>
-                        <p className="truncate text-xs text-ink-500">Réf. {b.reference}</p>
-                      </div>
+                      <p className="truncate font-medium text-ink-900">{nomVehiculeReservation(b)}</p>
                     </div>
                   )
                 },
@@ -311,13 +352,29 @@ export function MyBookingsPage() {
                   <div className="text-sm">
                     <p>{formaterDateCourte(b.pickup_at)}</p>
                     <p className="text-ink-500">→ {formaterDateCourte(b.return_at)}</p>
-                    {b.days_count != null && (
-                      <p className="mt-0.5 text-xs text-ink-400">
-                        {b.days_count} jour{b.days_count > 1 ? 's' : ''}
-                      </p>
-                    )}
                   </div>
                 ),
+              },
+              {
+                cle: 'duree',
+                libelle: 'Durée',
+                classe: 'whitespace-nowrap',
+                rendu: (b) => {
+                  const j = dureeJours(b)
+                  return (
+                    <span
+                      className={`inline-flex rounded-lg px-2 py-1 text-sm font-semibold ${
+                        j >= 7
+                          ? 'bg-gold-400/25 text-forest-950'
+                          : j >= 3
+                            ? 'bg-forest-900/8 text-forest-900'
+                            : 'text-ink-800'
+                      }`}
+                    >
+                      {libelleDuree(j)}
+                    </span>
+                  )
+                },
               },
               {
                 cle: 'partenaire',
@@ -352,36 +409,130 @@ export function MyBookingsPage() {
                 b.partner?.manager_name,
                 libelleStatut(b.status),
                 b.status,
+                libelleDuree(dureeJours(b)),
               ]
                 .filter(Boolean)
                 .join(' ')
             }
             filtresSupplementaires={
-              <select
-                className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                value={filtreStatut}
-                onChange={(e) => setFiltreStatut(e.target.value as FiltreStatutClient)}
-                aria-label="Filtrer par statut"
-              >
-                {FILTRES_STATUT.map((f) => (
-                  <option key={f.cle} value={f.cle}>
-                    {f.libelle}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  value={filtreStatut}
+                  onChange={(e) => setFiltreStatut(e.target.value as FiltreStatutClient)}
+                  aria-label="Filtrer par statut"
+                >
+                  {FILTRES_STATUT.map((f) => (
+                    <option key={f.cle} value={f.cle}>
+                      {f.libelle}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  value={dureeMin}
+                  onChange={(e) => setDureeMin(e.target.value as FiltreDureeMin)}
+                  aria-label="Filtrer par durée minimale"
+                >
+                  <option value="">Toutes les durées</option>
+                  <option value="3">3 jours et plus</option>
+                  <option value="5">5 jours et plus</option>
+                  <option value="7">7 jours et plus (plus longues)</option>
+                </select>
+                <select
+                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  value={tri}
+                  onChange={(e) => setTri(e.target.value as TriReservations)}
+                  aria-label="Trier les réservations"
+                >
+                  <option value="recent">Tri : récentes</option>
+                  <option value="duree_desc">Tri : plus longues d’abord</option>
+                  <option value="duree_asc">Tri : plus courtes d’abord</option>
+                </select>
+              </>
             }
             surActualiser={charger}
             chargement={chargement}
             messageVide="Aucune réservation ne correspond à ces filtres."
-            actions={(b) => (
-              <Link
-                to={`/confirmation/${b.id}`}
-                state={{ booking: b }}
-                className="text-sm font-medium text-forest-800 hover:underline"
-              >
-                Détail
-              </Link>
-            )}
+            renduDetail={(b) => {
+              const cover = b.vehicle?.cover_url || b.vehicle?.media?.[0]?.url
+              return (
+                <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
+                  {cover ? (
+                    <img
+                      src={cover}
+                      alt=""
+                      className="h-28 w-40 rounded-xl object-cover sm:h-32 sm:w-44"
+                    />
+                  ) : (
+                    <div className="grid h-28 w-40 place-items-center rounded-xl bg-sand-100 text-ink-300 sm:h-32 sm:w-44">
+                      —
+                    </div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Référence réservation
+                      </p>
+                      <p className="mt-0.5 font-mono text-base font-bold tracking-wide text-forest-900">
+                        {b.reference || '—'}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-500">
+                        Utilisez cette référence pour identifier précisément cette réservation.
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Véhicule
+                      </p>
+                      <p className="font-medium text-ink-900">{nomVehiculeReservation(b)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Statut
+                      </p>
+                      <span className={badgeStatut(b.status)}>{libelleStatut(b.status)}</span>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Départ
+                      </p>
+                      <p className="text-sm text-ink-800">{formaterDateCourte(b.pickup_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Retour
+                      </p>
+                      <p className="text-sm text-ink-800">{formaterDateCourte(b.return_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Durée
+                      </p>
+                      <p className="text-sm font-semibold text-forest-900">
+                        {libelleDuree(dureeJours(b))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Partenaire
+                      </p>
+                      <p className="text-sm text-ink-800">
+                        {b.partner?.company_name || b.partner?.manager_name || '—'}
+                      </p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                        Montant
+                      </p>
+                      <p className="text-lg font-bold text-forest-900">
+                        {formatXaf(b.total_amount)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            }}
           />
         )}
       </div>
@@ -397,7 +548,7 @@ export function PageNouvelleReservation() {
     return (
       <div className="min-h-screen bg-sand-50">
         <PublicHeader />
-        <div className="mx-auto max-w-3xl px-4 py-10">
+        <div className="mx-auto max-w-5xl px-4 py-10">
           <ContentLoader label="Chargement…" />
         </div>
       </div>
@@ -416,7 +567,7 @@ export function PageNouvelleReservation() {
   return (
     <div className="min-h-screen bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto max-w-3xl px-4 py-10 md:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
         <NavEspaceClient />
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">

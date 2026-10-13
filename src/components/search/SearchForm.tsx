@@ -106,7 +106,7 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
       })
   }, [])
 
-  // Recharge les véhicules libres dès que les dates (ou la recherche) changent.
+  // Recharge les véhicules libres uniquement quand les dates changent (pas à chaque frappe).
   useEffect(() => {
     if (!form.pickup_at || !form.return_at) return
     if (new Date(form.return_at) <= new Date(form.pickup_at)) return
@@ -119,7 +119,6 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
             pickup_at: form.pickup_at,
             return_at: form.return_at,
             available_only: 1,
-            ...(rechercheVehicule.trim() ? { q: rechercheVehicule.trim() } : {}),
           },
         })
         .then(({ data }) => {
@@ -140,7 +139,20 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
     }, 250)
 
     return () => clearTimeout(t)
-  }, [form.pickup_at, form.return_at, rechercheVehicule])
+  }, [form.pickup_at, form.return_at])
+
+  // Filtre local : pas d’appel API ni de rechargement à chaque caractère.
+  const vehiculesFiltres = useMemo(() => {
+    const terme = rechercheVehicule.trim().toLowerCase()
+    if (!terme) return vehicules
+    return vehicules.filter((v) =>
+      [v.display_name, v.brand, v.model, v.category, v.category_label, v.pickup_location_name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(terme),
+    )
+  }, [vehicules, rechercheVehicule])
 
   useEffect(() => {
     if (!listeVehiculesOuverte) return
@@ -333,8 +345,12 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
           </button>
 
           {listeVehiculesOuverte && (
-            <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-forest-950/15">
-              <div className="border-b border-sand-100 p-3">
+            <div
+              className={`absolute left-0 right-0 z-30 flex max-h-[min(18rem,calc(100dvh-10rem))] flex-col overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-forest-950/15 ${
+                espaceClient ? 'bottom-full mb-2' : 'top-full mt-2'
+              }`}
+            >
+              <div className="shrink-0 border-b border-sand-100 p-3">
                 <input
                   autoFocus
                   value={rechercheVehicule}
@@ -346,7 +362,7 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
                   Uniquement les véhicules libres sur vos dates
                 </p>
               </div>
-              <ul className="max-h-64 overflow-auto">
+              <ul className="min-h-0 flex-1 overflow-auto">
                 {chargementVehicules ? (
                   <li className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-ink-500">
                     <Spinner className="h-5 w-5" />
@@ -356,8 +372,12 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
                   <li className="px-4 py-6 text-center text-sm text-ink-500">
                     Aucun véhicule disponible pour ces dates. Modifiez la plage horaire.
                   </li>
+                ) : vehiculesFiltres.length === 0 ? (
+                  <li className="px-4 py-6 text-center text-sm text-ink-500">
+                    Aucun véhicule ne correspond à « {rechercheVehicule.trim()} ».
+                  </li>
                 ) : (
-                  vehicules.map((v) => (
+                  vehiculesFiltres.map((v) => (
                     <li key={v.id}>
                       <button
                         type="button"
@@ -392,20 +412,33 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
                   ))
                 )}
               </ul>
-              <div className="border-t border-sand-100 p-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVehiculeChoisi(null)
-                    setForm((f) => ({ ...f, location_id: '', location_label: '' }))
-                    setListeVehiculesOuverte(false)
-                    rechercherSansVehicule()
-                  }}
-                  className="w-full rounded-xl px-3 py-2 text-sm font-medium text-forest-800 hover:bg-sand-50"
-                >
-                  Voir les résultats de recherche
-                </button>
-              </div>
+              {!espaceClient && (
+                <div className="shrink-0 border-t border-sand-100 p-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVehiculeChoisi(null)
+                      setForm((f) => ({ ...f, location_id: '', location_label: '' }))
+                      setListeVehiculesOuverte(false)
+                      rechercherSansVehicule()
+                    }}
+                    className="w-full rounded-xl px-3 py-2 text-sm font-medium text-forest-800 hover:bg-sand-50"
+                  >
+                    Voir les résultats de recherche
+                  </button>
+                </div>
+              )}
+              {espaceClient && rechercheVehicule.trim() && (
+                <div className="shrink-0 border-t border-sand-100 p-2">
+                  <button
+                    type="button"
+                    onClick={() => setRechercheVehicule('')}
+                    className="w-full rounded-xl px-3 py-2 text-sm font-medium text-forest-800 hover:bg-sand-50"
+                  >
+                    Afficher tous les véhicules disponibles
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

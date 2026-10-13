@@ -24,7 +24,7 @@ export function Header() {
     <header className="absolute inset-x-0 top-0 z-30">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 md:px-6">
         <Link
-          to={user && estReservateur(user) ? '/mes-reservations' : espacePro?.to || '/'}
+          to="/"
           className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-sm md:text-3xl"
         >
           Loca<span className="text-gold-400">Gabon</span>
@@ -47,7 +47,6 @@ export function Header() {
         <div className="flex items-center gap-3 text-sm">
           {user ? (
             <>
-              {/* Réservateur : uniquement Déconnexion. Admin / partenaire : lien espace. */}
               {espacePro && (
                 <Link
                   to={espacePro.to}
@@ -86,10 +85,7 @@ export function PublicHeader() {
   return (
     <header className="border-b border-sand-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">
-        <Link
-          to={user && estReservateur(user) ? '/mes-reservations' : espacePro?.to || '/'}
-          className="font-display text-2xl font-bold text-forest-900"
-        >
+        <Link to="/" className="font-display text-2xl font-bold text-forest-900">
           Loca<span className="text-gold-600">Gabon</span>
         </Link>
 
