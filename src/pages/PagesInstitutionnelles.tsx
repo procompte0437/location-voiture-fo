@@ -67,26 +67,26 @@ export function PageCharteConfidentialite() {
       aide={{
         titre: 'À quoi sert cette charte',
         texte:
-          'Elle décrit les données que LV241 collecte pour faire fonctionner la marketplace, et comment les faire rectifier ou supprimer.',
+          'Elle décrit les données que DOTO collecte pour faire fonctionner la marketplace, et comment les faire rectifier ou supprimer.',
       }}
       miseAJour
     >
       <Article titre="Responsable">
         <p>
-          LV241 est une marketplace de location de voitures entre clients et partenaires vérifiés. La
+          DOTO est une marketplace de location de voitures entre clients et partenaires vérifiés. La
           plateforme est responsable des données traitées pour le compte, la recherche, la réservation
           et le support.
         </p>
       </Article>
       <Article titre="Données collectées">
-        <p>Selon l’usage du site, LV241 peut enregistrer :</p>
+        <p>Selon l’usage du site, DOTO peut enregistrer :</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>identité et contact : nom, adresse e-mail, téléphone ;</li>
           <li>compte : mot de passe stocké sous forme chiffrée, rôle, statut ;</li>
           <li>réservation : lieu, dates, âge du conducteur, véhicule choisi, statut ;</li>
           <li>
             paiement : moyen (Mobile Money ou carte), montant, devise, référence et statut. Le numéro
-            complet de carte n’est pas conservé par LV241 ;
+            complet de carte n’est pas conservé par DOTO ;
           </li>
           <li>dossier partenaire : société, RCCM, NIF, documents transmis pour la validation ;</li>
           <li>
@@ -112,7 +112,7 @@ export function PageCharteConfidentialite() {
           d’audit ne sont pas modifiés après écriture.
         </p>
         <p>
-          LV241 ne vend pas ces données. Elles peuvent être confiées aux prestataires techniques
+          DOTO ne vend pas ces données. Elles peuvent être confiées aux prestataires techniques
           strictement nécessaires (hébergement, paiement) et aux autorités lorsque la loi l’exige.
         </p>
       </Article>
@@ -148,13 +148,13 @@ export function PageConditionsGenerales() {
       aide={{
         titre: 'Portée des conditions',
         texte:
-          'Elles régissent l’usage de LV241. Le contrat de location lui-même est conclu avec le partenaire qui met le véhicule à disposition.',
+          'Elles régissent l’usage de DOTO. Le contrat de location lui-même est conclu avec le partenaire qui met le véhicule à disposition.',
       }}
       miseAJour
     >
       <Article titre="Objet">
         <p>
-          LV241 met en relation des clients et des partenaires (agences, entreprises ou particuliers)
+          DOTO met en relation des clients et des partenaires (agences, entreprises ou particuliers)
           dont le dossier a été validé. La plateforme publie les offres, enregistre la réservation et
           encaisse le paiement indiqué. Elle n’est pas le loueur du véhicule.
         </p>
@@ -163,7 +163,7 @@ export function PageConditionsGenerales() {
         <p>
           L’inscription demande des informations exactes. Le client gère ses réservations depuis son
           espace. Le partenaire ne publie un véhicule qu’après validation de son dossier par
-          l’équipe LV241. Tout compte peut être suspendu en cas d’informations fausses ou d’usage
+          l’équipe DOTO. Tout compte peut être suspendu en cas d’informations fausses ou d’usage
           abusif.
         </p>
       </Article>
@@ -171,14 +171,14 @@ export function PageConditionsGenerales() {
         <p>
           Le prix affiché dépend du véhicule, des dates et des conditions indiquées sur la fiche. La
           réservation est confirmée selon le statut communiqué après le paiement (Mobile Money ou
-          carte). LV241 peut prélever une commission sur la location, au taux convenu avec le
+          carte). DOTO peut prélever une commission sur la location, au taux convenu avec le
           partenaire. Ce taux ne s’ajoute pas en sus du prix montré au client.
         </p>
       </Article>
       <Article titre="Annulation">
         <p>
           Chaque véhicule indique une politique d’annulation : flexible, modérée ou stricte. Cette
-          politique, visible avant la réservation, s’applique à la demande du client. LV241 ou le
+          politique, visible avant la réservation, s’applique à la demande du client. DOTO ou le
           partenaire peut aussi annuler une réservation qui ne peut pas être honorée ; le client en
           est informé et le remboursement suit alors le statut du paiement.
         </p>
@@ -193,7 +193,7 @@ export function PageConditionsGenerales() {
       </Article>
       <Article titre="Responsabilité">
         <p>
-          LV241 veille à la validation des partenaires et au bon fonctionnement du service. Le
+          DOTO veille à la validation des partenaires et au bon fonctionnement du service. Le
           partenaire reste responsable de la mise à disposition du véhicule et des obligations du
           loueur. Le client reste responsable de l’usage du véhicule pendant la location.
         </p>
@@ -329,7 +329,7 @@ export function PageContact() {
       titre="Contactez-nous"
       aide={{
         titre: 'Délai de réponse',
-        texte: 'L’équipe LV241 répond à l’adresse indiquée, en général sous 24 heures ouvrées.',
+        texte: 'L’équipe DOTO répond à l’adresse indiquée, en général sous 24 heures ouvrées.',
       }}
     >
       <section className="rounded-2xl border border-sand-200 bg-white p-6">

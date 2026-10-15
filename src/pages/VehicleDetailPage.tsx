@@ -701,7 +701,7 @@ export function VehicleDetailPage() {
             </label>
             <p className="mt-2 text-sm text-ink-600">
               Airtel Money et Moov Money sont débités sur le numéro indiqué. Aucun frais de carte n’est ajouté par
-              LV241.
+              DOTO.
             </p>
             <details className="mt-4 text-sm">
               <summary className="cursor-pointer font-medium text-forest-800">Modifier les dates</summary>

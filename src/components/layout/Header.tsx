@@ -45,7 +45,7 @@ function BarreNavigation() {
       <div className="bg-forest-700 text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <Link to="/" className="text-2xl font-extrabold tracking-tight md:text-[1.7rem]">
-            LV241
+            DOTO
           </Link>
 
           <div className="flex items-center gap-3">

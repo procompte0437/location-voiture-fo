@@ -171,7 +171,7 @@ export function CoquePartenaire({
               onClick={() => setMenuOuvert(false)}
               className="mt-1 block font-display text-2xl font-bold tracking-tight"
             >
-              LV241
+              DOTO
             </Link>
             <p className="mt-1 truncate text-xs text-white/50">
               {nomPartenaire || user?.name || 'Votre espace pro'}

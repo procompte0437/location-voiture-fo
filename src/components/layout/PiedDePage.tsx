@@ -24,9 +24,9 @@ export function PiedDePage() {
           ))}
         </nav>
 
-        <p className="mt-8 text-3xl font-extrabold tracking-tight">LV241</p>
+        <p className="mt-8 text-3xl font-extrabold tracking-tight">DOTO</p>
         <p className="mt-3 text-xs text-white/80">
-          © Copyright {new Date().getFullYear()} LV241 — Location entre partenaires vérifiés
+          © Copyright {new Date().getFullYear()} DOTO — Location entre partenaires vérifiés
         </p>
       </div>
 

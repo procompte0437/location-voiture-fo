@@ -1,6 +1,6 @@
 import gabonMapPaths from './gabonMapPaths.json'
 
-/** Métadonnées métier LocaGabon (slug API catalogue). */
+/** Métadonnées métier DOTO (slug API catalogue). */
 const META: Record<string, { slug: string; nom: string; chefLieu: string }> = {
   G1: { slug: 'estuaire', nom: 'Estuaire', chefLieu: 'Libreville' },
   G2: { slug: 'haut-ogooue', nom: 'Haut-Ogooué', chefLieu: 'Franceville' },

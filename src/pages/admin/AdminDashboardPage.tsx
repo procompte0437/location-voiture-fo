@@ -159,7 +159,7 @@ export function AdminDashboardPage() {
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Tableau de bord"
-        subtitle="Vue temps réel de la marketplace LV241."
+        subtitle="Vue temps réel de la marketplace DOTO."
         action={
           estSuperAdmin ? (
           <Link

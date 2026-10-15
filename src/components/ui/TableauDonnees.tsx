@@ -39,7 +39,7 @@ type PropsTableauDonnees<T> = {
 }
 
 /**
- * Tableau de données standard LocaGabon.
+ * Tableau de données standard DOTO.
  * Recherche dans un menu déroulant, actualisation, pagination, spinner avec pourcentage.
  */
 export function TableauDonnees<T>({
