@@ -25,7 +25,7 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
   {
     title: 'Référentiel',
     items: [
-      { to: '/admin/referentiel', label: 'Lieux & listes' },
+      { to: '/admin/referentiel', label: 'Référentiel' },
       { to: '/admin/agences', label: 'Agences provinces' },
     ],
   },
