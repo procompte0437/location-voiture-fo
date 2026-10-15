@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { BandeauConfiance } from '../components/home/BandeauConfiance'
+import { CarteProvincesGabon } from '../components/home/CarteProvincesGabon'
+import { EstimateurPrix } from '../components/home/EstimateurPrix'
+import { FormulaireVitrine } from '../components/home/FormulaireVitrine'
 import { Header } from '../components/layout/Header'
-import { SearchForm } from '../components/search/SearchForm'
-import { VehicleCard } from '../components/vehicles/VehicleCard'
-import { ContentLoader } from '../components/ui/Spinner'
-import api from '../lib/api'
-import type { Location, Vehicle } from '../types'
+import { PiedDePage } from '../components/layout/PiedDePage'
+import api, { formatXaf } from '../lib/api'
+import type { Vehicle } from '../types'
 
 type HomeCatalog = {
   contents: Record<string, string>
@@ -13,157 +15,174 @@ type HomeCatalog = {
   categories: { id: number; slug: string; label: string; description?: string }[]
 }
 
+/** SUV sur route — fond du comparateur (écrasé si le catalogue fournit home.hero_image_url). */
+const PHOTO_HERO_DEFAUT =
+  'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=2200&q=80'
+
+function TitreSection({ ligne1, ligne2 }: { ligne1: string; ligne2?: string }) {
+  return (
+    <div className="text-center">
+      <h2 className="text-4xl font-extrabold tracking-tight text-neutral-950 md:text-5xl">
+        {ligne1}
+        {ligne2 && <span className="mt-1 block text-[0.62em] font-bold">{ligne2}</span>}
+      </h2>
+      <span className="mx-auto mt-4 block h-[3px] w-14 bg-neutral-950" />
+    </div>
+  )
+}
+
+function lienExemple(v: Vehicle, jours: number) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const iso = (decalage: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + decalage)
+    d.setHours(10, 0, 0, 0)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`
+  }
+  const qs = new URLSearchParams()
+  qs.set('pickup_at', iso(1))
+  qs.set('return_at', iso(1 + jours))
+  qs.set('driver_age', '25')
+  return `/vehicules/${v.id}?${qs.toString()}`
+}
+
 export function HomePage() {
-  const [popular, setPopular] = useState<Location[]>([])
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const location = useLocation()
   const [catalog, setCatalog] = useState<HomeCatalog | null>(null)
+  const [vehicules, setVehicules] = useState<Vehicle[]>([])
+  const [chargementVedettes, setChargementVedettes] = useState(true)
 
   useEffect(() => {
-    void Promise.all([
-      api.get('/catalog/home'),
-      api.get('/locations/popular'),
-      api.get('/vehicles/search', { params: { per_page: 6, sort: 'rating' } }),
-    ])
-      .then(([home, locs, vehs]) => {
-        setCatalog(home.data.data)
-        setPopular(locs.data.data)
-        setVehicles(vehs.data.data)
-      })
+    void api
+      .get('/catalog/home')
+      .then(({ data }) => setCatalog(data.data))
       .catch(() => undefined)
   }, [])
 
+  useEffect(() => {
+    setChargementVedettes(true)
+    void api
+      .get('/vehicles/search', { params: { per_page: 24, page: 1, sort: 'rating' } })
+      .then(({ data }) => setVehicules(data.data || []))
+      .catch(() => setVehicules([]))
+      .finally(() => setChargementVedettes(false))
+  }, [])
+
+  useEffect(() => {
+    if (!location.hash) return
+    const cible = document.querySelector(location.hash)
+    if (cible) cible.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location])
+
   const c = catalog?.contents || {}
-  const heroImage = c['home.hero_image_url'] || ''
+  /** Retire la locution « au Gabon » des textes éditoriaux affichés. */
+  const texteSansAuGabon = (valeur?: string) =>
+    (valeur || '').replace(/\s*au Gabon\b/gi, '').replace(/\s{2,}/g, ' ').trim()
+  const photoHero = c['home.hero_image_url'] || PHOTO_HERO_DEFAUT
+  const categories = catalog?.categories || []
+  const exemples = vehicules.slice(0, 2)
 
   return (
-    <div className="min-h-screen bg-sand-50">
-      <section className="relative min-h-[92vh] overflow-hidden">
+    <div className="min-h-screen bg-white text-neutral-900">
+      <Header />
+
+      <section id="recherche" className="relative z-30 scroll-mt-24">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `linear-gradient(120deg, rgba(6,40,28,0.78) 0%, rgba(10,61,42,0.55) 45%, rgba(6,40,28,0.35) 100%)${
-              heroImage ? `, url('${heroImage}')` : ''
-            }`,
+            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45) 100%), url('${photoHero}')`,
           }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(230,184,74,0.18),transparent_50%)]" />
-        <Header />
-
-        <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-center gap-10 px-4 pb-16 pt-28 md:px-6">
-          <div className="max-w-2xl animate-[fadeUp_0.7s_ease-out]">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">
-              {c['home.hero_eyebrow']}
-            </p>
-            <h1 className="font-display text-4xl font-bold leading-tight text-white md:text-5xl lg:text-6xl">
-              {c['home.hero_title']}
-            </h1>
-            <p className="mt-4 max-w-xl text-lg text-white/85 md:text-xl">
-              {c['home.hero_subtitle']}
-            </p>
-            <p className="mt-3 text-sm text-white/70">{c['home.hero_promises']}</p>
-          </div>
-
-          <div className="w-full max-w-5xl animate-[fadeUp_0.9s_ease-out]">
-            <SearchForm />
-          </div>
+        <div className="relative mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-16 lg:min-h-[420px] lg:py-20">
+          <FormulaireVitrine />
         </div>
       </section>
 
-      <section className="border-b border-sand-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4 md:px-6">
-          {(catalog?.reassurance || []).map((item) => (
-            <div key={item.id} className="space-y-1">
-              <h2 className="font-semibold text-forest-800">{item.title}</h2>
-              <p className="text-sm text-ink-500">{item.text}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <BandeauConfiance />
 
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
-        <div className="mb-8 max-w-2xl">
-          <h2 className="font-display text-3xl font-bold text-forest-950">
-            {c['home.destinations_title']}
-          </h2>
-          <p className="mt-3 text-ink-700">{c['home.destinations_subtitle']}</p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {popular.map((loc) => (
-            <Link
-              key={loc.id}
-              to={`/recherche?location_id=${loc.id}&location_label=${encodeURIComponent(loc.name)}`}
-              className="rounded-xl border border-sand-200 bg-white px-4 py-5 transition hover:border-forest-600 hover:shadow-md"
-            >
-              <p className="font-semibold text-ink-900">{loc.name}</p>
-              <p className="text-sm capitalize text-ink-500">{loc.type}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <EstimateurPrix
+        vehicules={vehicules}
+        chargement={chargementVedettes}
+        categories={categories}
+      />
 
-      <section className="bg-forest-950 py-16 text-white">
-        <div className="mx-auto max-w-6xl px-4 md:px-6">
-          <h2 className="font-display text-3xl font-bold">{c['home.categories_title']}</h2>
-          <p className="mt-2 text-white/70">{c['home.categories_subtitle']}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            {(catalog?.categories || []).map((cat) => (
-              <Link
-                key={cat.id}
-                to={`/recherche?category=${cat.slug}`}
-                className="rounded-full border border-white/20 px-5 py-2 text-sm font-medium transition hover:border-gold-400 hover:bg-white/10"
-              >
-                {cat.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display text-3xl font-bold text-forest-950">
-              {c['home.featured_title']}
-            </h2>
-            <p className="mt-2 text-ink-700">{c['home.featured_subtitle']}</p>
-          </div>
-          <Link to="/vehicules" className="text-sm font-semibold text-forest-700 hover:underline">
-            Tout voir
-          </Link>
-        </div>
-        {vehicles.length === 0 ? (
-          <div className="rounded-2xl border border-sand-200 bg-white">
-            <ContentLoader />
-          </div>
-        ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {vehicles.map((v) => (
-            <VehicleCard key={v.id} vehicle={v} />
-          ))}
-        </div>
-        )}
-      </section>
-
-      <footer className="border-t border-sand-200 bg-white py-10">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 text-sm text-ink-500 md:flex-row md:items-center md:justify-between md:px-6">
-          <p className="font-display text-lg font-semibold text-forest-900">
-            Loca<span className="text-gold-600">Gabon</span>
+      <section id="agences" className="scroll-mt-24 bg-neutral-50 px-4 py-16 md:px-6 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <TitreSection
+            ligne1={texteSansAuGabon(c['home.destinations_title']) || 'nos agences'}
+          />
+          <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-neutral-600">
+            {texteSansAuGabon(c['home.destinations_subtitle']) ||
+              'Touchez une province pour voir les agences et démarrer une recherche.'}
           </p>
-          <div className="flex flex-wrap gap-4">
-            <Link to="/devenir-partenaire">Devenir partenaire</Link>
-            <Link to="/faq">FAQ</Link>
-            <Link to="/connexion">Connexion</Link>
+          <div className="mt-10">
+            <CarteProvincesGabon />
           </div>
-          <p>© {new Date().getFullYear()} LocaGabon — marketplace multi-partenaires</p>
         </div>
-      </footer>
+      </section>
 
-      <style>{`
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      <section className="bg-neutral-100 px-4 py-16 md:px-6 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-2 flex justify-center text-neutral-400">
+            <svg viewBox="0 0 48 32" className="h-8 w-12" fill="currentColor" aria-hidden>
+              <path d="M8 4h12v8H14l-4 6V4zm20 0h12v8H34l-4 6V4z" />
+            </svg>
+          </div>
+          <TitreSection ligne1="exemples de locations" />
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            {exemples.map((v, index) => {
+              const jours = index === 0 ? 1 : 3
+              const ville = v.agency?.city || v.partner.city || 'Gabon'
+              const modele = v.category_label || v.display_name
+              const phrase =
+                index === 0
+                  ? `${modele} pour la journée, chez ${v.partner.name || 'un partenaire'} à ${ville}. Le prix affiché est celui de la location.`
+                  : `${modele} pour le week-end, avec un partenaire vérifié. Le montant est connu avant de confirmer.`
+              return (
+                <article key={v.id} className="bg-white p-6 shadow-sm md:p-8">
+                  <p className="text-sm text-neutral-500">
+                    {index === 0 ? 'location en agence' : 'livraison'}
+                  </p>
+                  <p className="mt-6 text-lg leading-relaxed text-neutral-800">« {phrase} »</p>
+                  <p className="mt-8 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    {v.display_name} · {jours === 1 ? '1 jour' : 'week-end'} · {ville}
+                  </p>
+                  <div className="mt-6 flex items-end justify-between gap-4">
+                    <p className="border-l-4 border-accent-500 pl-3 text-3xl font-bold text-neutral-950">
+                      {formatXaf(v.price_per_day * jours)}
+                    </p>
+                    <Link
+                      to={lienExemple(v, jours)}
+                      className="border-b border-neutral-950 text-sm font-semibold"
+                    >
+                      En savoir plus
+                    </Link>
+                  </div>
+                </article>
+              )
+            })}
+            {!chargementVedettes && exemples.length === 0 && (
+              <p className="text-sm text-neutral-600">
+                Les exemples s’afficheront dès que des véhicules seront publiés.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-neutral-100 bg-white px-4 py-12 text-center md:px-6">
+        <p className="text-lg text-neutral-800 md:text-xl">
+          Vous voulez réserver par téléphone ? Appelez-nous au :{' '}
+          <a href="tel:+24101123456" className="font-bold text-forest-700 hover:underline">
+            +241 01 12 34 56
+          </a>
+        </p>
+        <p className="mt-2 text-sm text-neutral-500">
+          Ouverts du lundi au vendredi de 8h à 20h, et le week-end de 9h à 18h.
+        </p>
+      </section>
+
+      <PiedDePage />
     </div>
   )
 }

@@ -141,7 +141,7 @@ export function PageDevenirPartenaire() {
             Devenir partenaire
           </h1>
           <p className="mt-4 text-lg text-ink-700">
-            Agences, entreprises ou particuliers : publiez vos véhicules sur LocaGabon après validation de
+            Agences, entreprises ou particuliers : publiez vos véhicules sur LV241 après validation de
             votre dossier.
           </p>
           <ul className="mt-8 space-y-3 text-ink-700">
@@ -1353,7 +1353,7 @@ export function PageAidePartenaire() {
       <HeroPage
         surtitre="Support"
         titre="Aide"
-        sousTitre="Réponses rapides pour piloter sereinement votre activité LocaGabon."
+        sousTitre="Réponses rapides pour piloter sereinement votre activité LV241."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">

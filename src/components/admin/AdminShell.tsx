@@ -29,6 +29,7 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
     title: 'Référentiel',
     items: [
       { to: '/admin/referentiel', label: 'Lieux & listes' },
+      { to: '/admin/agences', label: 'Agences provinces' },
     ],
   },
   {
@@ -41,8 +42,8 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
   },
 ]
 
-/** Entrées réservées au super admin (comptes + validation partenaires). */
-const ROUTES_SUPER_ADMIN = new Set(['/admin/validation', '/admin/comptes'])
+/** Entrées réservées au super admin (comptes + validation partenaires + agences). */
+const ROUTES_SUPER_ADMIN = new Set(['/admin/validation', '/admin/comptes', '/admin/agences'])
 
 
 const ICONS: Record<string, ReactNode> = {
@@ -113,6 +114,7 @@ const PAGE_HINTS: Record<string, string> = {
   '/admin/reservations': 'Flux de réservations',
   '/admin/finances': 'GMV et commissions',
   '/admin/referentiel': 'Lieux, marques, modèles et listes déroulantes',
+  '/admin/agences': 'Agences rattachées aux 9 provinces (carte accueil)',
 }
 
 function initials(name?: string) {
@@ -151,7 +153,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           Menu
         </button>
         <Link to="/admin" className="text-lg font-semibold text-[#0b3d2e]">
-          LocaGabon
+          LV241
         </Link>
         <span className="text-xs text-ink-500">Admin</span>
       </div>
@@ -173,11 +175,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="flex h-full flex-col px-3 py-5">
           <div className="mb-7 flex items-center gap-3 px-2">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-bold">
-              LG
+              LV
             </div>
             <div className="min-w-0">
               <Link to="/admin" className="block truncate text-base font-semibold" onClick={() => setOpen(false)}>
-                LocaGabon
+                LV241
               </Link>
               <p className="text-[11px] text-white/50">Console super admin</p>
             </div>

@@ -13,6 +13,43 @@ function toLocalInput(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+const HORAIRES_AGENCE = [
+  ['Lundi', '08:00 – 18:00'],
+  ['Mardi', '08:00 – 18:00'],
+  ['Mercredi', '08:00 – 18:00'],
+  ['Jeudi', '08:00 – 18:00'],
+  ['Vendredi', '08:00 – 18:00'],
+  ['Samedi', '08:00 – 13:00'],
+  ['Dimanche', '09:00 – 12:00'],
+]
+
+function libelleCarburant(slug: string) {
+  if (slug === 'full_to_full') return 'Plein / Plein'
+  if (slug === 'same_to_same') return 'Même niveau'
+  return 'Selon le partenaire'
+}
+
+function formaterMoment(iso: string) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { jour: '—', heure: '', indice: 0 }
+  const jours = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
+  const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+  return {
+    jour: `${jours[d.getDay()]} ${d.getDate()} ${mois[d.getMonth()]} ${d.getFullYear()}`,
+    heure: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+    indice: (d.getDay() + 6) % 7,
+  }
+}
+
+const ETAPES_RESERVATION = [
+  { id: 'conducteur', label: 'Conducteur' },
+  { id: 'reservation', label: 'Réservation' },
+  { id: 'protection', label: 'Protection' },
+  { id: 'paiement', label: 'Paiement' },
+] as const
+
+type EtapeReservation = (typeof ETAPES_RESERVATION)[number]['id']
+
 function datesParDefaut() {
   const pickup = new Date()
   pickup.setDate(pickup.getDate() + 1)
@@ -33,7 +70,19 @@ export function VehicleDetailPage() {
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
   const [disponible, setDisponible] = useState<boolean | null>(null)
-  const [guest, setGuest] = useState({ name: '', email: '', phone: '' })
+  const [guest, setGuest] = useState({
+    civilite: 'M.',
+    prenom: '',
+    nom: '',
+    email: '',
+    phone: '',
+  })
+  const [etape, setEtape] = useState<EtapeReservation>('conducteur')
+  const [erreurConducteur, setErreurConducteur] = useState('')
+  const [protegeFranchise, setProtegeFranchise] = useState(false)
+  const [rappelAssurance, setRappelAssurance] = useState(false)
+  const [horairesOuverts, setHorairesOuverts] = useState<'depart' | 'retour' | null>(null)
+  const [secondesRestantes, setSecondesRestantes] = useState(15 * 60)
   const [method, setMethod] = useState('airtel_money')
   const [moyensPaiement, setMoyensPaiement] = useState<{ slug: string; label: string }[]>([])
   const [agesConducteur, setAgesConducteur] = useState<{ slug: string; label: string }[]>([])
@@ -43,6 +92,7 @@ export function VehicleDetailPage() {
   const returnAt = searchParams.get('return_at') || defauts.return
   const driverAge = Number(searchParams.get('driver_age') || 25)
   const locationId = searchParams.get('location_id')
+  const lieuLabel = searchParams.get('location_label') || ''
 
   function majParametre(cle: string, valeur: string) {
     const next = new URLSearchParams(searchParams)
@@ -158,19 +208,24 @@ export function VehicleDetailPage() {
   useEffect(() => {
     if (!user) return
     setGuest((current) => ({
-      name: current.name || user.name || '',
+      ...current,
+      prenom: current.prenom || user.name?.split(' ')[0] || '',
+      nom: current.nom || user.name?.split(' ').slice(1).join(' ') || '',
       email: current.email || user.email || '',
       phone: current.phone || user.phone || '',
     }))
   }, [user])
 
-  async function onBook(e: FormEvent) {
-    e.preventDefault()
+  useEffect(() => {
+    const idMinuteur = window.setInterval(() => {
+      setSecondesRestantes((s) => (s > 0 ? s - 1 : 0))
+    }, 1000)
+    return () => window.clearInterval(idMinuteur)
+  }, [])
+
+  async function payerMaintenant() {
     if (!vehicle) return
-    if (!pickupAt || !returnAt) {
-      setError('Choisissez une plage de dates pour réserver.')
-      return
-    }
+    setRappelAssurance(false)
     setPaying(true)
     setError('')
     try {
@@ -180,7 +235,7 @@ export function VehicleDetailPage() {
         return_at: returnAt,
         driver_age: driverAge,
         pickup_location_id: locationId ? Number(locationId) : undefined,
-        guest_name: guest.name || undefined,
+        guest_name: `${guest.civilite} ${guest.prenom} ${guest.nom}`.trim() || undefined,
         guest_email: guest.email || undefined,
         guest_phone: guest.phone || undefined,
       })
@@ -232,6 +287,44 @@ export function VehicleDetailPage() {
     }
   }
 
+  function continuerConducteur() {
+    const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guest.email.trim())
+    if (!guest.prenom.trim() || !guest.nom.trim() || !emailValide || !guest.phone.trim()) {
+      setErreurConducteur('Renseignez le prénom, le nom, un e-mail valide et le téléphone.')
+      return
+    }
+    setErreurConducteur('')
+    setEtape('reservation')
+  }
+
+  function indiceEtape(id: EtapeReservation) {
+    return ETAPES_RESERVATION.findIndex((e) => e.id === id)
+  }
+
+  function allerEtape(id: EtapeReservation) {
+    if (indiceEtape(id) > indiceEtape(etape)) return
+    setEtape(id)
+  }
+
+  function onBook(e: FormEvent) {
+    e.preventDefault()
+    if (etape === 'conducteur') {
+      continuerConducteur()
+      return
+    }
+    if (etape !== 'paiement') return
+    if (!vehicle) return
+    if (!pickupAt || !returnAt) {
+      setError('Choisissez une plage de dates pour réserver.')
+      return
+    }
+    if (!protegeFranchise) {
+      setRappelAssurance(true)
+      return
+    }
+    void payerMaintenant()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-sand-50">
@@ -259,141 +352,440 @@ export function VehicleDetailPage() {
       ? Math.max(1, Math.ceil((new Date(returnAt).getTime() - new Date(pickupAt).getTime()) / 86400000))
       : null
   const total = days ? days * vehicle.price_per_day : null
+  const depart = formaterMoment(pickupAt)
+  const retour = formaterMoment(returnAt)
+  const lieu =
+    lieuLabel || vehicle.agency?.name || vehicle.partner.city || 'Agence partenaire'
+  const minutes = String(Math.floor(secondesRestantes / 60)).padStart(2, '0')
+  const secondes = String(secondesRestantes % 60).padStart(2, '0')
+  const champ = 'w-full rounded-md border border-sand-200 px-3 py-2.5 text-sm'
+
+  function blocHoraires(cle: 'depart' | 'retour', indice: number) {
+    const ligne = HORAIRES_AGENCE[indice]
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setHorairesOuverts((actuel) => (actuel === cle ? null : cle))}
+          className="text-left text-sm text-forest-800 underline-offset-2 hover:underline"
+        >
+          Horaires d’agence
+          {ligne ? ` · ${ligne[0]} ${ligne[1]}` : ''}
+        </button>
+        {horairesOuverts === cle && (
+          <div className="absolute z-20 mt-2 w-64 rounded-md border border-sand-200 bg-white p-3 text-sm shadow-lg">
+            <p className="mb-2 text-xs text-ink-500">Horaires indicatifs des agences partenaires.</p>
+            <table className="w-full">
+              <tbody>
+                {HORAIRES_AGENCE.map(([jour, plage], index) => (
+                  <tr key={jour} className={index === indice ? 'font-bold' : undefined}>
+                    <td className="py-0.5">{jour}</td>
+                    <td className="py-0.5 text-right">{plage}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1.4fr_1fr] md:px-6">
-        <div>
-          <div className="overflow-hidden rounded-2xl bg-sand-100">
-            <img
-              src={vehicle.cover_url || ''}
-              alt={vehicle.display_name}
-              className="aspect-[16/10] w-full object-cover"
-            />
-          </div>
-          <div className="mt-6 space-y-4">
-            <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">
-              {vehicle.category_label || vehicle.category}
-            </p>
-            <h1 className="font-display text-4xl font-bold text-forest-950">{vehicle.display_name}</h1>
-            <p className="text-ink-700">
-              {vehicle.partner.name} · ★ {vehicle.partner.average_rating.toFixed(1)} ({vehicle.partner.reviews_count} avis)
-              · {vehicle.partner.city}
-            </p>
-            <p className="text-ink-700">{vehicle.description}</p>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <span className="rounded-full bg-white px-3 py-1.5 border border-sand-200">{vehicle.seats} places</span>
-              <span className="rounded-full bg-white px-3 py-1.5 border border-sand-200">{transmissionLabel(vehicle.transmission)}</span>
-              <span className="rounded-full bg-white px-3 py-1.5 border border-sand-200">{fuelLabel(vehicle.fuel)}</span>
-              <span className="rounded-full bg-white px-3 py-1.5 border border-sand-200">
-                Caution {formatXaf(vehicle.deposit_amount)}
-              </span>
-              <span className="rounded-full bg-white px-3 py-1.5 border border-sand-200">
-                Âge min. {vehicle.min_driver_age} ans
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <aside className="h-fit rounded-2xl border border-sand-200 bg-white p-6 shadow-sm">
-          <p className="font-display text-3xl font-bold text-forest-800">
-            {formatXaf(vehicle.price_per_day)}
-            <span className="text-base font-normal text-ink-500"> / jour</span>
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[280px_1fr] md:px-6">
+        <aside className="h-fit rounded-xl border border-sand-200 bg-white p-4">
+          <img
+            src={vehicle.cover_url || ''}
+            alt={vehicle.display_name}
+            className="aspect-[16/10] w-full rounded-md object-cover"
+          />
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-forest-700">
+            {vehicle.partner.name}
           </p>
-          {total != null && (
-            <p className="mt-1 text-sm text-ink-700">
-              Total estimé ({days} j) : <strong>{formatXaf(total)}</strong>
-            </p>
+          <h1 className="font-display text-2xl font-bold text-forest-950">{vehicle.display_name}</h1>
+          <p className="text-sm text-ink-500">ou véhicule similaire · {vehicle.category_label || vehicle.category}</p>
+          <p className="mt-3 flex flex-wrap gap-2 text-xs text-ink-700">
+            <span>{vehicle.seats} places</span>
+            <span>{vehicle.doors} portes</span>
+            <span>{transmissionLabel(vehicle.transmission)}</span>
+          </p>
+          <p className="mt-2 text-sm text-forest-800">
+            Politique carburant : {libelleCarburant(vehicle.fuel_policy)}
+          </p>
+          {etape !== 'conducteur' && (
+            <>
+              <div className="mt-4 border-t border-sand-200 pt-3 text-sm">
+                <p className="font-semibold">Destination</p>
+                <p className="mt-1">{lieu}</p>
+                <p className="mt-2">
+                  {depart.jour} {depart.heure}
+                </p>
+                <p className="font-semibold text-forest-800">{days ? `${days} jour${days > 1 ? 's' : ''}` : ''}</p>
+                <p>
+                  {retour.jour} {retour.heure}
+                </p>
+              </div>
+              {total != null && (
+                <p className="mt-4 text-sm">
+                  Location <span className="float-right font-bold">{formatXaf(total)}</span>
+                </p>
+              )}
+            </>
           )}
-          <ul className="mt-4 space-y-2 text-sm text-ink-700">
-            <li>✓ Prix final en FCFA, sans frais cachés</li>
-            <li>✓ Politique : {vehicle.cancellation_policy}</li>
-            <li>✓ Mode : {vehicle.booking_mode === 'instant' ? 'Réservation instantanée' : 'Sur demande'}</li>
-          </ul>
+        </aside>
 
-          {pickupAt && returnAt && disponible === true && (
-            <p className="mt-4 rounded-lg bg-forest-50 px-3 py-2 text-sm font-medium text-forest-800">
-              Véhicule disponible sur ces dates
-            </p>
-          )}
-
-          <form onSubmit={onBook} className="mt-6 space-y-3">
-            <div>
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Dates et horaires
-              </span>
-              <DateRangePicker
-                pickupAt={pickupAt}
-                returnAt={returnAt}
-                compact
-                onChange={majDates}
+        <form onSubmit={onBook} className="space-y-4">
+          <nav aria-label="Étapes de la réservation" className="rounded-xl border border-sand-200 bg-white px-3 py-5 sm:px-6">
+            <div className="relative">
+              <div className="absolute left-[12.5%] right-[12.5%] top-4 h-1 rounded-full bg-sand-200" />
+              <div
+                className="absolute left-[12.5%] top-4 h-1 rounded-full bg-forest-700 transition-all"
+                style={{ width: `${(indiceEtape(etape) / (ETAPES_RESERVATION.length - 1)) * 75}%` }}
               />
+              <ol className="relative grid grid-cols-4">
+                {ETAPES_RESERVATION.map((item, index) => {
+                  const atteinte = index <= indiceEtape(etape)
+                  const courante = item.id === etape
+                  return (
+                    <li key={item.id} className="flex flex-col items-center gap-2 text-center">
+                      <button
+                        type="button"
+                        disabled={!atteinte}
+                        onClick={() => allerEtape(item.id)}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                          courante
+                            ? 'bg-forest-700 text-white ring-4 ring-forest-100'
+                            : atteinte
+                              ? 'bg-forest-700 text-white'
+                              : 'bg-sand-200 text-ink-500'
+                        } disabled:cursor-default`}
+                        aria-current={courante ? 'step' : undefined}
+                      >
+                        {index + 1}
+                      </button>
+                      <span
+                        className={`text-xs font-semibold sm:text-sm ${
+                          courante ? 'text-forest-900' : atteinte ? 'text-forest-700' : 'text-ink-500'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
             </div>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Âge du conducteur
-              </span>
-              <select
-                value={driverAge}
-                onChange={(e) => majParametre('driver_age', e.target.value)}
-                className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
+          </nav>
+
+          {etape === 'conducteur' && (
+          <section className="rounded-xl border border-sand-200 bg-white p-5">
+            <h2 className="font-semibold">Conducteur principal</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Civilité
+                <select
+                  value={guest.civilite}
+                  onChange={(e) => setGuest((g) => ({ ...g, civilite: e.target.value }))}
+                  className={`mt-1 ${champ}`}
+                >
+                  <option>M.</option>
+                  <option>Mme</option>
+                </select>
+              </label>
+              <label className="text-sm">
+                Âge
+                <select
+                  value={driverAge}
+                  onChange={(e) => majParametre('driver_age', e.target.value)}
+                  className={`mt-1 ${champ}`}
+                >
+                  {agesConducteur.map((a) => (
+                    <option key={a.slug} value={Number(a.slug)}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Prénom
+                <input
+                  required
+                  value={guest.prenom}
+                  onChange={(e) => setGuest((g) => ({ ...g, prenom: e.target.value }))}
+                  className={`mt-1 ${champ}`}
+                />
+              </label>
+              <label className="text-sm">
+                Nom
+                <input
+                  required
+                  value={guest.nom}
+                  onChange={(e) => setGuest((g) => ({ ...g, nom: e.target.value }))}
+                  className={`mt-1 ${champ}`}
+                />
+              </label>
+              <label className="text-sm sm:col-span-2">
+                E-mail
+                <input
+                  required
+                  type="email"
+                  value={guest.email}
+                  onChange={(e) => setGuest((g) => ({ ...g, email: e.target.value }))}
+                  className={`mt-1 ${champ}`}
+                />
+              </label>
+              <label className="text-sm sm:col-span-2">
+                Téléphone
+                <input
+                  required
+                  value={guest.phone}
+                  onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))}
+                  placeholder="+241 …"
+                  className={`mt-1 ${champ}`}
+                />
+              </label>
+            </div>
+            <p className="mt-3 text-xs text-ink-500">
+              Si le partenaire doit vous joindre pour la remise du véhicule.
+            </p>
+            {erreurConducteur && <p className="mt-3 text-sm text-red-700">{erreurConducteur}</p>}
+            <button
+              type="button"
+              onClick={continuerConducteur}
+              className="mt-4 rounded-md bg-forest-700 px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Continuer
+            </button>
+          </section>
+          )}
+
+          {etape === 'reservation' && (
+          <>
+          <section className="rounded-xl border border-sand-200 bg-white p-5">
+            <h2 className="font-semibold text-forest-950">Données de réservation</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Récupérer la voiture</p>
+                <p className="mt-1 font-medium">{depart.jour}</p>
+                <p>{depart.heure}</p>
+                <p className="mt-1 text-sm text-ink-700">{lieu}</p>
+                {blocHoraires('depart', depart.indice)}
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Rendre la voiture</p>
+                <p className="mt-1 font-medium">
+                  {retour.jour}
+                  {days ? ` (${days} jours)` : ''}
+                </p>
+                <p>{retour.heure}</p>
+                <p className="mt-1 text-sm text-ink-700">{lieu}</p>
+                {blocHoraires('retour', retour.indice)}
+              </div>
+            </div>
+            <div className="mt-4 flex justify-between border-t border-sand-100 pt-3 text-sm">
+              <span>Location de voiture</span>
+              <span className="font-semibold">{total != null ? formatXaf(total) : '—'}</span>
+            </div>
+            <div className="mt-1 flex justify-between text-sm">
+              <span>Caution (franchise)</span>
+              <span>{formatXaf(vehicle.deposit_amount)}</span>
+            </div>
+            {disponible === true && (
+              <p className="mt-2 text-sm text-forest-800">Véhicule libre sur ces dates.</p>
+            )}
+            {disponible === false && (
+              <p className="mt-2 text-sm text-red-700">Indisponible sur ces dates.</p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setEtape('conducteur')}
+                className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
               >
-                {agesConducteur.map((a) => (
-                  <option key={a.slug} value={Number(a.slug)}>
-                    {a.label}
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={() => setEtape('protection')}
+                disabled={disponible === false}
+                className="rounded-md bg-forest-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Continuer
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-sand-200 bg-white p-5">
+            <h2 className="font-semibold">Inclus dans le prix</h2>
+            <ul className="mt-3 grid gap-2 text-sm text-ink-800 sm:grid-cols-2">
+              <li>✓ Prix annoncé en FCFA, sans frais cachés</li>
+              <li>✓ {vehicle.free_cancellation ? 'Annulation gratuite' : 'Annulation selon le partenaire'}</li>
+              <li>✓ Carburant : {libelleCarburant(vehicle.fuel_policy)}</li>
+              <li>✓ {fuelLabel(vehicle.fuel)} · {transmissionLabel(vehicle.transmission)}</li>
+              {vehicle.air_conditioning && <li>✓ Climatisation</li>}
+              <li>✓ {vehicle.airport_delivery ? 'Livraison aéroport possible' : 'Retrait en agence'}</li>
+              <li>✓ Paiement Airtel Money, Moov Money ou carte</li>
+            </ul>
+          </section>
+
+          <section className="rounded-xl border border-sand-200 bg-white p-5 text-sm text-ink-800">
+            <h2 className="font-semibold text-neutral-950">Conseils avant de partir</h2>
+            <ul className="mt-3 space-y-2">
+              <li>✓ Le lieu de retrait est indiqué avant la confirmation.</li>
+              <li>✓ Âge minimum du conducteur : {vehicle.min_driver_age} ans, permis en cours de validité.</li>
+              <li>
+                ✓ {vehicle.booking_mode === 'instant'
+                  ? 'Réservation instantanée chez ce partenaire.'
+                  : 'Le partenaire confirme la demande avant le départ.'}
+              </li>
+            </ul>
+          </section>
+          </>
+          )}
+
+          {etape === 'protection' && (
+          <section className="rounded-xl border border-sand-200 bg-white p-5">
+            <h2 className="font-semibold">Protection de la franchise</h2>
+            <p className="mt-2 text-sm text-ink-700">
+              Sans protection, vous restez responsable des dommages à hauteur de la caution de{' '}
+              {formatXaf(vehicle.deposit_amount)}, généralement bloquée à la remise des clés.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setProtegeFranchise(false)}
+                className={`rounded-lg border p-4 text-left text-sm ${
+                  !protegeFranchise ? 'border-forest-700 ring-2 ring-forest-700' : 'border-sand-200'
+                }`}
+              >
+                <p className="font-semibold">Sans protection</p>
+                <p className="mt-2 text-ink-600">Vous assumez la caution en cas de dommage.</p>
+                <p className="mt-3 font-bold">{total != null ? formatXaf(total) : ''}</p>
+                <p className="text-xs text-ink-500">Prix de la location, payé en ligne</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProtegeFranchise(true)}
+                className={`rounded-lg border p-4 text-left text-sm ${
+                  protegeFranchise ? 'border-forest-700 ring-2 ring-forest-700' : 'border-sand-200'
+                }`}
+              >
+                <p className="font-semibold">Protéger la franchise</p>
+                <p className="mt-2 text-ink-600">
+                  À demander au partenaire à la prise du véhicule. Le paiement en ligne reste celui de la location.
+                </p>
+                <p className="mt-3 font-bold">Caution {formatXaf(vehicle.deposit_amount)}</p>
+              </button>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setEtape('reservation')}
+                className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={() => setEtape('paiement')}
+                className="rounded-md bg-forest-700 px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Continuer
+              </button>
+            </div>
+          </section>
+          )}
+
+          {etape === 'paiement' && (
+          <section className="rounded-xl border border-sand-200 bg-white p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 className="font-semibold">Paiement</h2>
+              <p className="text-sm text-ink-600">
+                {secondesRestantes > 0
+                  ? `${minutes}:${secondes} pour garder ce prix`
+                  : 'Le prix affiché peut encore changer'}
+              </p>
+            </div>
+            <label className="mt-4 block text-sm">
+              Moyen de paiement
+              <select
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                className={`mt-1 ${champ}`}
+              >
+                {moyensPaiement.map((m) => (
+                  <option key={m.slug} value={m.slug}>
+                    {m.label}
                   </option>
                 ))}
               </select>
             </label>
-            <input
-              placeholder="Nom complet"
-              value={guest.name}
-              onChange={(e) => setGuest((g) => ({ ...g, name: e.target.value }))}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={guest.email}
-              onChange={(e) => setGuest((g) => ({ ...g, email: e.target.value }))}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
-              required
-            />
-            <input
-              placeholder="Téléphone"
-              value={guest.phone}
-              onChange={(e) => setGuest((g) => ({ ...g, phone: e.target.value }))}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
-              required
-            />
-            <select
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-              className="w-full rounded-xl border border-sand-200 px-3 py-2.5"
-            >
-              {moyensPaiement.map((m) => (
-                <option key={m.slug} value={m.slug}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            {error && <p className="text-sm text-red-700">{error}</p>}
-            <button
-              type="submit"
-              disabled={paying || !pickupAt || disponible === false}
-              className="w-full rounded-xl bg-forest-800 py-3 font-bold text-white hover:bg-forest-700 disabled:opacity-50"
-            >
-              {paying
-                ? 'Paiement…'
-                : disponible === false
-                  ? 'Indisponible sur ces dates'
-                  : 'Réserver et payer'}
-            </button>
-          </form>
-        </aside>
+            <p className="mt-2 text-sm text-ink-600">
+              Airtel Money et Moov Money sont débités sur le numéro indiqué. Aucun frais de carte n’est ajouté par
+              LV241.
+            </p>
+            <details className="mt-4 text-sm">
+              <summary className="cursor-pointer font-medium text-forest-800">Modifier les dates</summary>
+              <div className="mt-3">
+                <DateRangePicker pickupAt={pickupAt} returnAt={returnAt} compact onChange={majDates} />
+              </div>
+            </details>
+            {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+            {vehicle.description && <p className="mt-4 text-sm text-ink-600">{vehicle.description}</p>}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEtape('protection')}
+                className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
+              >
+                Retour
+              </button>
+              <button
+                type="submit"
+                disabled={paying || !pickupAt || disponible === false}
+                className="flex flex-1 items-center justify-between bg-forest-700 px-4 py-3 font-bold text-white disabled:opacity-50"
+              >
+                <span>{paying ? 'Paiement…' : 'Payez en ligne maintenant'}</span>
+                <span>{total != null ? formatXaf(total) : ''}</span>
+              </button>
+            </div>
+          </section>
+          )}
+        </form>
       </div>
+
+      {rappelAssurance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold">Attendez</h2>
+            <p className="mt-2 text-sm text-ink-700">
+              Le prix de la location est déjà affiché. Sans protection, la caution de{' '}
+              {formatXaf(vehicle.deposit_amount)} reste à votre charge en cas de dommage.
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setProtegeFranchise(true)
+                  setRappelAssurance(false)
+                }}
+                className="rounded-md bg-forest-700 px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                Je veux protéger la franchise
+              </button>
+              <button
+                type="button"
+                onClick={() => void payerMaintenant()}
+                className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
+              >
+                Sans protection, je prends le risque
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

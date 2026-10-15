@@ -165,7 +165,7 @@ export function CoquePartenaire({
               onClick={() => setMenuOuvert(false)}
               className="mt-1 block font-display text-2xl font-bold tracking-tight"
             >
-              Loca<span className="text-gold-400">Gabon</span>
+              LV241
             </Link>
             <p className="mt-1 truncate text-xs text-white/50">
               {nomPartenaire || user?.name || 'Votre espace pro'}

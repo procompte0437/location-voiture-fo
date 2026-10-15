@@ -41,9 +41,11 @@ type PropsSearchForm = {
   compact?: boolean
   /** Formulaire intégré à l’espace réservateur (pas le bloc hero du site). */
   espaceClient?: boolean
+  /** Carte flottante de l’accueil : parcours plus court, bouton toujours visible. */
+  vitrine?: boolean
 }
 
-export function SearchForm({ compact = false, espaceClient = false }: PropsSearchForm) {
+export function SearchForm({ compact = false, espaceClient = false, vitrine = false }: PropsSearchForm) {
   const navigate = useNavigate()
   const selecteurVehicule = useRef<HTMLDivElement>(null)
   const [locations, setLocations] = useState<Location[]>([])
@@ -227,26 +229,42 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
     navigate(`/recherche?${qs.toString()}`)
   }
 
+  const libelleDates = vitrine ? 'Quand partez-vous ?' : '1 · Dates et horaires'
+  const libelleVoiture = vitrine ? 'Quelle voiture est libre ?' : '2 · Choisir une voiture disponible'
+
   return (
     <form
       onSubmit={onSubmit}
-      className={`w-full rounded-2xl bg-white ${
-        espaceClient
-          ? 'border border-sand-200 shadow-sm'
-          : 'shadow-xl shadow-forest-950/20'
-      } ${compact ? 'p-4' : 'p-5 md:p-6'}`}
+      className={`relative z-30 w-full bg-white ${
+        vitrine
+          ? 'rounded-[28px] border border-white/70 p-5 shadow-[0_28px_70px_-28px_rgba(6,40,28,0.55)] md:p-7'
+          : espaceClient
+            ? 'rounded-2xl border border-sand-200 shadow-sm'
+            : 'rounded-2xl shadow-xl shadow-forest-950/20'
+      } ${compact ? 'p-4' : vitrine ? '' : 'p-5 md:p-6'}`}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="inline-flex rounded-full bg-forest-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
-          Voiture
-        </span>
+      <div className={`flex flex-wrap items-end justify-between gap-3 ${vitrine ? 'mb-5' : 'mb-4'}`}>
+        {vitrine ? (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gold-600">
+              Votre trajet
+            </p>
+            <p className="mt-1 font-display text-2xl font-semibold text-forest-950">
+              Réservez en toute clarté
+            </p>
+          </div>
+        ) : (
+          <span className="inline-flex rounded-full bg-forest-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+            Voiture
+          </span>
+        )}
         {!espaceClient && (
           <button
             type="button"
             onClick={() => navigate('/reservation/trouver')}
-            className="text-sm font-medium text-forest-700 hover:underline"
+            className="text-sm font-medium text-forest-700 underline-offset-4 hover:underline"
           >
-            Voir / modifier ma réservation
+            {vitrine ? 'Déjà une réservation ?' : 'Voir / modifier ma réservation'}
           </button>
         )}
       </div>
@@ -254,8 +272,14 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
       <div className="grid gap-4">
         {/* 1. Dates d’abord — filtrent la disponibilité */}
         <div>
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-            1 · Dates et horaires
+          <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+            <span>{libelleDates}</span>
+            {vitrine && durationDays > 0 && !chargementVehicules && (
+              <span className="rounded-full bg-forest-100 px-2.5 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-forest-800">
+                {vehicules.length} libre{vehicules.length !== 1 ? 's' : ''} · {durationDays} jour
+                {durationDays > 1 ? 's' : ''}
+              </span>
+            )}
           </span>
           <DateRangePicker
             pickupAt={form.pickup_at}
@@ -263,7 +287,7 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
             compact={compact}
             onChange={(pickup_at, return_at) => setForm((f) => ({ ...f, pickup_at, return_at }))}
           />
-          <p className="mt-2 text-xs text-ink-500">
+          <p className={`mt-2 text-xs text-ink-500 ${vitrine && durationDays > 0 && !chargementVehicules ? 'sr-only' : ''}`}>
             {chargementVehicules ? (
               'Vérification des disponibilités…'
             ) : durationDays > 0 ? (
@@ -286,7 +310,7 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
         {/* 2. Voitures libres uniquement */}
         <div ref={selecteurVehicule} className="relative">
           <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-            2 · Choisir une voiture disponible
+            {libelleVoiture}
           </span>
           <button
             type="button"
@@ -494,31 +518,48 @@ export function SearchForm({ compact = false, espaceClient = false }: PropsSearc
           </select>
         )}
 
-        <label className="block max-w-xs">
-          <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-            Âge du conducteur
-          </span>
-          <select
-            value={form.driver_age}
-            onChange={(e) => setForm((f) => ({ ...f, driver_age: Number(e.target.value) }))}
-            className="w-full rounded-xl border border-sand-200 bg-sand-50 px-4 py-3 outline-none ring-forest-600 focus:ring-2"
-          >
-            {agesConducteur.map((a) => (
-              <option key={a.slug} value={Number(a.slug)}>
-                {a.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div
+          className={
+            vitrine
+              ? 'flex flex-col gap-3 border-t border-sand-100 pt-4 md:flex-row md:items-end md:justify-between'
+              : 'contents'
+          }
+        >
+          <label className={vitrine ? 'block w-full md:max-w-[240px]' : 'block max-w-xs'}>
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+              Âge du conducteur
+            </span>
+            <select
+              value={form.driver_age}
+              onChange={(e) => setForm((f) => ({ ...f, driver_age: Number(e.target.value) }))}
+              className="w-full rounded-xl border border-sand-200 bg-sand-50 px-4 py-3 outline-none ring-forest-600 focus:ring-2"
+            >
+              {agesConducteur.map((a) => (
+                <option key={a.slug} value={Number(a.slug)}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
-          <button
-            type="submit"
-            disabled={!vehiculeChoisi}
-            className="rounded-xl bg-gold-500 px-6 py-3 text-sm font-bold text-forest-950 shadow-md transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Continuer
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+            {vitrine && (
+              <button
+                type="button"
+                onClick={rechercherSansVehicule}
+                className="rounded-full px-4 py-3 text-sm font-semibold text-forest-800 transition hover:bg-sand-100"
+              >
+                Voir toutes les voitures
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={!vehiculeChoisi}
+              className="rounded-full bg-gold-500 px-7 py-3 text-sm font-bold text-forest-950 shadow-md transition hover:bg-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continuer
+            </button>
+          </div>
         </div>
       </div>
     </form>

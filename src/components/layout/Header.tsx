@@ -1,4 +1,5 @@
-import { Link, NavLink } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 function estReservateur(user: { role: string; owned_partner?: unknown }) {
@@ -15,109 +16,121 @@ function lienEspacePro(user: { role: string; owned_partner?: unknown }) {
   return null
 }
 
-/** Navbar hero (accueil) — liens publics uniquement si déconnecté. */
-export function Header() {
+/**
+ * En-tête type comparateur : barre verte + sous-barre noire (agences).
+ */
+function BarreNavigation() {
   const { user, logout } = useAuth()
+  const { pathname } = useLocation()
+  const [menuOuvert, setMenuOuvert] = useState(false)
   const espacePro = user && !estReservateur(user) ? lienEspacePro(user) : null
+  const lienCompte = user
+    ? estReservateur(user)
+      ? '/mes-reservations'
+      : espacePro?.to || '/connexion'
+    : '/connexion'
+
+  useEffect(() => {
+    setMenuOuvert(false)
+  }, [pathname])
 
   return (
-    <header className="absolute inset-x-0 top-0 z-30">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 md:px-6">
-        <Link
-          to="/"
-          className="font-display text-2xl font-bold tracking-tight text-white drop-shadow-sm md:text-3xl"
-        >
-          Loca<span className="text-gold-400">Gabon</span>
-        </Link>
+    <header id="haut" className="sticky top-0 z-50">
+      <div className="bg-forest-700 text-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+          <Link to="/" className="text-2xl font-extrabold tracking-tight md:text-[1.7rem]">
+            LV241
+          </Link>
 
-        {!user && (
-          <nav className="hidden items-center gap-6 text-sm font-medium text-white/90 md:flex">
-            <NavLink to="/vehicules" className="transition hover:text-gold-400">
-              Nos véhicules
-            </NavLink>
-            <NavLink to="/devenir-partenaire" className="transition hover:text-gold-400">
-              Devenir partenaire
-            </NavLink>
-            <NavLink to="/reservation/trouver" className="transition hover:text-gold-400">
-              Ma réservation
-            </NavLink>
-          </nav>
-        )}
+          <div className="flex items-center gap-3">
+            <Link
+              to={lienCompte}
+              className="inline-flex items-center gap-2 rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="8" r="3.2" />
+                <path d="M5 19.2c1.4-3 3.8-4.5 7-4.5s5.6 1.5 7 4.5" strokeLinecap="round" />
+              </svg>
+              Mon compte
+            </Link>
+            <button
+              type="button"
+              className="rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold md:hidden"
+              aria-expanded={menuOuvert}
+              onClick={() => setMenuOuvert((o) => !o)}
+            >
+              {menuOuvert ? 'Fermer' : 'Menu'}
+            </button>
+          </div>
+        </div>
 
-        <div className="flex items-center gap-3 text-sm">
-          {user ? (
-            <>
+        {menuOuvert && (
+          <div className="border-t border-white/20 px-4 py-3 md:hidden">
+            <nav className="flex flex-col gap-2 text-sm font-semibold">
+              <Link to="/vehicules" onClick={() => setMenuOuvert(false)}>
+                Véhicules
+              </Link>
+              <Link to="/#agences" onClick={() => setMenuOuvert(false)}>
+                Agences
+              </Link>
+              <Link to="/faq" onClick={() => setMenuOuvert(false)}>
+                Aide
+              </Link>
+              <Link to="/reservation/trouver" onClick={() => setMenuOuvert(false)}>
+                Voir la réservation
+              </Link>
               {espacePro && (
-                <Link
-                  to={espacePro.to}
-                  className="rounded-full bg-white/15 px-3 py-1.5 text-white backdrop-blur hover:bg-white/25"
-                >
+                <Link to={espacePro.to} onClick={() => setMenuOuvert(false)}>
                   {espacePro.label}
                 </Link>
               )}
-              <button
-                type="button"
-                onClick={() => void logout()}
-                className="rounded-full bg-forest-800 px-3 py-1.5 font-medium text-white hover:bg-forest-700"
-              >
+              {user && (
+                <button type="button" onClick={() => void logout()} className="text-left">
+                  Déconnexion
+                </button>
+              )}
+            </nav>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-neutral-950 text-white">
+        <div className="mx-auto flex max-w-7xl items-center px-4 py-2 md:px-6">
+          <Link
+            to="/#agences"
+            className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-gold-400"
+          >
+            Agences de location de voitures
+            <span aria-hidden className="text-[10px]">
+              ▾
+            </span>
+          </Link>
+          <nav className="ml-auto hidden items-center gap-5 text-sm md:flex">
+            <Link to="/vehicules" className="hover:text-gold-400">
+              Véhicules
+            </Link>
+            <Link to="/devenir-partenaire" className="hover:text-gold-400">
+              Professionnels
+            </Link>
+            <Link to="/faq" className="hover:text-gold-400">
+              Aide
+            </Link>
+            {user && (
+              <button type="button" onClick={() => void logout()} className="hover:text-gold-400">
                 Déconnexion
               </button>
-            </>
-          ) : (
-            <Link
-              to="/connexion"
-              className="rounded-full bg-white px-4 py-2 font-semibold text-forest-900 shadow-sm transition hover:bg-sand-100"
-            >
-              Identifiez-vous
-            </Link>
-          )}
+            )}
+          </nav>
         </div>
       </div>
     </header>
   )
 }
 
-/** Navbar pages internes — réservateur connecté : Déconnexion seul. */
+export function Header() {
+  return <BarreNavigation />
+}
+
 export function PublicHeader() {
-  const { user, logout } = useAuth()
-  const espacePro = user && !estReservateur(user) ? lienEspacePro(user) : null
-
-  return (
-    <header className="border-b border-sand-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">
-        <Link to="/" className="font-display text-2xl font-bold text-forest-900">
-          Loca<span className="text-gold-600">Gabon</span>
-        </Link>
-
-        {user ? (
-          <nav className="flex items-center gap-3 text-sm font-medium">
-            {espacePro && (
-              <Link to={espacePro.to} className="text-ink-700 hover:text-forest-700">
-                {espacePro.label}
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-full bg-forest-800 px-4 py-2 text-white hover:bg-forest-700"
-            >
-              Déconnexion
-            </button>
-          </nav>
-        ) : (
-          <nav className="flex items-center gap-4 text-sm font-medium text-ink-700">
-            <Link to="/vehicules" className="hover:text-forest-700">
-              Véhicules
-            </Link>
-            <Link
-              to="/connexion"
-              className="rounded-full bg-forest-800 px-4 py-2 text-white hover:bg-forest-700"
-            >
-              Connexion
-            </Link>
-          </nav>
-        )}
-      </div>
-    </header>
-  )
+  return <BarreNavigation />
 }

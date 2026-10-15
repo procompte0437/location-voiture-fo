@@ -35,6 +35,7 @@ import {
   AdminFinancesPage,
   AdminLocationsPage,
 } from './pages/admin/AdminManagePages'
+import { AdminAgencesPage } from './pages/admin/AdminAgencesPage'
 import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
 import {
   AdminVehicleCreatePage,
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="reservations" element={<AdminBookingsPage />} />
             <Route path="finances" element={<AdminFinancesPage />} />
             <Route path="referentiel" element={<AdminReferentielPage />} />
+            <Route path="agences" element={<AdminAgencesPage />} />
           </Route>
           <Route path="/faq" element={<FaqPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

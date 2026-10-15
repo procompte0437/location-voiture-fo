@@ -1,0 +1,84 @@
+{
+  "G1": {
+    "id": "G1",
+    "name": "Estuaire",
+    "chefLieu": "Libreville",
+    "center": {
+      "x": 110,
+      "y": 175
+    },
+    "hub": true
+  },
+  "G2": {
+    "id": "G2",
+    "name": "Haut-Ogooué",
+    "chefLieu": "Franceville",
+    "center": {
+      "x": 410,
+      "y": 320
+    }
+  },
+  "G3": {
+    "id": "G3",
+    "name": "Moyen-Ogooué",
+    "chefLieu": "Lambaréné",
+    "center": {
+      "x": 195,
+      "y": 225
+    }
+  },
+  "G4": {
+    "id": "G4",
+    "name": "Ngounié",
+    "chefLieu": "Mouila",
+    "center": {
+      "x": 215,
+      "y": 335
+    }
+  },
+  "G5": {
+    "id": "G5",
+    "name": "Nyanga",
+    "chefLieu": "Tchibanga",
+    "center": {
+      "x": 210,
+      "y": 460
+    }
+  },
+  "G6": {
+    "id": "G6",
+    "name": "Ogooué-Ivindo",
+    "chefLieu": "Makokou",
+    "center": {
+      "x": 385,
+      "y": 145
+    }
+  },
+  "G7": {
+    "id": "G7",
+    "name": "Ogooué-Lolo",
+    "chefLieu": "Koula-Moutou",
+    "center": {
+      "x": 325,
+      "y": 285
+    }
+  },
+  "G8": {
+    "id": "G8",
+    "name": "Ogooué-Maritime",
+    "chefLieu": "Port-Gentil",
+    "center": {
+      "x": 75,
+      "y": 300
+    }
+  },
+  "G9": {
+    "id": "G9",
+    "name": "Woleu-Ntem",
+    "chefLieu": "Oyem",
+    "center": {
+      "x": 290,
+      "y": 60
+    }
+  }
+}
