@@ -1,20 +1,20 @@
 import { Link } from 'react-router-dom'
 
 const LIENS_PIED = [
-  { vers: '/reservation/trouver', libelle: 'Voir la réservation' },
+  { vers: '/mes-reservations', libelle: 'Mes réservations' },
   { vers: '/devenir-partenaire', libelle: 'À propos de nous' },
   { vers: '/faq', libelle: 'Aide' },
-  { vers: '/faq', libelle: 'Charte de confidentialité' },
-  { vers: '/faq', libelle: 'Conditions générales' },
-  { vers: '/vehicules', libelle: 'Plan du site' },
-  { vers: '/faq', libelle: 'Contactez-nous' },
+  { vers: '/charte-de-confidentialite', libelle: 'Charte de confidentialité' },
+  { vers: '/conditions-generales', libelle: 'Conditions générales' },
+  { vers: '/plan-du-site', libelle: 'Plan du site' },
+  { vers: '/contact', libelle: 'Contactez-nous' },
   { vers: '/vehicules', libelle: 'Location de voitures' },
 ]
 
 /** Pied de page vert : liens centrés, marque et copyright. */
 export function PiedDePage() {
   return (
-    <footer className="relative bg-forest-700 text-white">
+    <footer className="relative bg-forest-950 text-white">
       <div className="mx-auto max-w-7xl px-4 py-10 text-center md:px-6">
         <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
           {LIENS_PIED.map((lien) => (

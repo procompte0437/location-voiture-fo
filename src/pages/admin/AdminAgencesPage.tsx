@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { PROVINCES_GABON } from '../../data/provincesGabon'
@@ -300,7 +301,18 @@ export function AdminAgencesPage() {
           {
             cle: 'status',
             libelle: 'Statut',
-            rendu: (a) => (a.is_active ? 'Active' : 'Inactive'),
+            rendu: (a) => (
+              <button
+                type="button"
+                onClick={() => void basculerActif(a)}
+                title={a.is_active ? 'Désactiver' : 'Activer'}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                  a.is_active ? 'bg-[#0b3d2e]/10 text-[#0b3d2e]' : 'bg-[#f0f1f0] text-ink-500'
+                }`}
+              >
+                {a.is_active ? 'Active' : 'Inactive'}
+              </button>
+            ),
           },
         ]}
         donnees={agencesFiltrees}
@@ -328,27 +340,8 @@ export function AdminAgencesPage() {
         messageVide="Aucune agence. Ajoutez-en ci-dessus pour colorer la carte."
         actions={(a) => (
           <>
-            <button
-              type="button"
-              onClick={() => demarrerEdition(a)}
-              className="text-sm font-medium text-forest-800 hover:underline"
-            >
-              Modifier
-            </button>
-            <button
-              type="button"
-              onClick={() => void basculerActif(a)}
-              className="text-sm font-medium text-forest-800 hover:underline"
-            >
-              {a.is_active ? 'Désactiver' : 'Activer'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void supprimer(a)}
-              className="text-sm font-medium text-red-700 hover:underline"
-            >
-              Supprimer
-            </button>
+            <BoutonActionCrud variante="modifier" libelle="Modifier" onClick={() => demarrerEdition(a)} />
+            <BoutonActionCrud variante="supprimer" libelle="Supprimer" onClick={() => void supprimer(a)} />
           </>
         )}
       />

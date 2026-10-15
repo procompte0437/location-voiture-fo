@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useCatalog } from '../../context/CatalogContext'
 import { formatXaf } from '../../lib/api'
 import type { Vehicle } from '../../types'
+import { DisponibilitesVehicule } from './DisponibilitesVehicule'
 
 export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; searchQuery?: string }) {
   const { fuelLabel, transmissionLabel } = useCatalog()
@@ -54,8 +55,10 @@ export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; search
                 Total {formatXaf(vehicle.total_price)}
               </p>
             )}
+            <p className="mt-1 text-xs text-ink-500">Caution {formatXaf(vehicle.deposit_amount)}</p>
           </div>
         </div>
+        <DisponibilitesVehicule calendrier={vehicle.calendar} disponible={vehicle.available} />
         <div className="flex flex-wrap gap-2 text-xs text-ink-700">
           <span className="rounded-full bg-sand-100 px-2.5 py-1">{vehicle.seats} places</span>
           <span className="rounded-full bg-sand-100 px-2.5 py-1">
@@ -73,7 +76,7 @@ export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; search
           to={href}
           className="inline-flex w-full items-center justify-center rounded-full bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-forest-700"
         >
-          Réserver
+          {vehicle.available === false ? 'Voir les dates libres' : 'Réserver'}
         </Link>
       </div>
     </article>

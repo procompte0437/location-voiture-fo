@@ -1,4 +1,4 @@
-import { NavLink, Link, Outlet, useLocation, Navigate } from 'react-router-dom'
+import { NavLink, Link, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { ContentLoader } from '../ui/Spinner'
@@ -102,8 +102,14 @@ export function CoquePartenaire({
   statutPartenaire?: string
 }) {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [menuOuvert, setMenuOuvert] = useState(false)
   const emplacement = useLocation()
+
+  async function seDeconnecter() {
+    await logout()
+    navigate('/', { replace: true })
+  }
 
   const sousTitreEntete =
     emplacement.pathname.includes('/voitures/nouvelle')
@@ -227,7 +233,7 @@ export function CoquePartenaire({
               </Link>
               <button
                 type="button"
-                onClick={() => void logout()}
+                onClick={() => void seDeconnecter()}
                 className="rounded-lg border border-white/15 px-2 py-2 text-xs font-medium text-white/85 hover:bg-white/10"
               >
                 Déconnexion

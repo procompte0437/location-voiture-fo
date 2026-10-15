@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ContentLoader } from './Spinner'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { BoutonActionCrud } from './BoutonActionCrud'
+import { SpinnerPourcentage } from './Spinner'
 
 /** Définition d’une colonne du tableau. */
 export type ColonneTableau<T> = {
@@ -11,6 +12,9 @@ export type ColonneTableau<T> = {
   rendu?: (ligne: T) => ReactNode
 }
 
+/** Tailles proposées : l’utilisateur choisit combien de lignes voir. */
+const TAILLES_PAGE = [3, 5, 10, 20, 50]
+
 type PropsTableauDonnees<T> = {
   colonnes: ColonneTableau<T>[]
   donnees: T[]
@@ -18,23 +22,25 @@ type PropsTableauDonnees<T> = {
   cleLigne: (ligne: T) => string | number
   /** Texte de recherche (filtre client sur les champs indiqués). */
   champsRecherche?: (ligne: T) => string
-  /** Filtres additionnels à gauche du champ recherche. */
+  /** Filtres métiers, affichés dans le même menu que la recherche. */
   filtresSupplementaires?: ReactNode
+  /** Pastille sur le menu quand un filtre métier est actif. */
+  filtreActif?: boolean
   /** Callback bouton actualiser (obligatoire pour le pattern DataTable). */
   surActualiser: () => void | Promise<void>
   chargement?: boolean
   messageVide?: string
   /** Taille de page par défaut. */
   taillePage?: number
-  /** Actions par ligne (boutons à droite). */
+  /** Actions par ligne (icônes à droite). */
   actions?: (ligne: T) => ReactNode
-  /** Contenu déplié sous la ligne (accordéon Détail / Replier). */
+  /** Contenu déplié sous la ligne (œil « voir le détail »). */
   renduDetail?: (ligne: T) => ReactNode
 }
 
 /**
  * Tableau de données standard LocaGabon.
- * Toujours : barre de filtres, icône d’actualisation, pagination.
+ * Recherche dans un menu déroulant, actualisation, pagination, spinner avec pourcentage.
  */
 export function TableauDonnees<T>({
   colonnes,
@@ -42,6 +48,7 @@ export function TableauDonnees<T>({
   cleLigne,
   champsRecherche,
   filtresSupplementaires,
+  filtreActif = false,
   surActualiser,
   chargement = false,
   messageVide = 'Aucun résultat.',
@@ -50,13 +57,19 @@ export function TableauDonnees<T>({
   renduDetail,
 }: PropsTableauDonnees<T>) {
   const [recherche, setRecherche] = useState('')
+  const [menuOuvert, setMenuOuvert] = useState(false)
   const [page, setPage] = useState(1)
   const [parPage, setParPage] = useState(taillePage)
   const [actualisation, setActualisation] = useState(false)
   const [ligneOuverte, setLigneOuverte] = useState<string | number | null>(null)
+  const zoneMenu = useRef<HTMLDivElement>(null)
 
   const montreActions = Boolean(actions || renduDetail)
   const nbColonnes = colonnes.length + (montreActions ? 1 : 0)
+  const montreMenu = Boolean(champsRecherche || filtresSupplementaires)
+  const tailles = TAILLES_PAGE.includes(taillePage)
+    ? TAILLES_PAGE
+    : [...TAILLES_PAGE, taillePage].sort((a, b) => a - b)
 
   function basculerDetail(id: string | number) {
     setLigneOuverte((actuel) => (actuel === id ? null : id))
@@ -66,6 +79,17 @@ export function TableauDonnees<T>({
   useEffect(() => {
     setPage(1)
   }, [donnees, recherche, parPage])
+
+  useEffect(() => {
+    if (!menuOuvert) return
+    function fermerSiExterieur(evenement: MouseEvent) {
+      if (!zoneMenu.current?.contains(evenement.target as Node)) {
+        setMenuOuvert(false)
+      }
+    }
+    document.addEventListener('mousedown', fermerSiExterieur)
+    return () => document.removeEventListener('mousedown', fermerSiExterieur)
+  }, [menuOuvert])
 
   const filtrees = useMemo(() => {
     const terme = recherche.trim().toLowerCase()
@@ -77,6 +101,7 @@ export function TableauDonnees<T>({
   const pageCourante = Math.min(page, totalPages)
   const debut = (pageCourante - 1) * parPage
   const pageDonnees = filtrees.slice(debut, debut + parPage)
+  const rechercheActive = recherche.trim().length > 0
 
   async function actualiser() {
     setActualisation(true)
@@ -89,27 +114,51 @@ export function TableauDonnees<T>({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-black/8 bg-white">
-      {/* Barre filtres + actualisation (toujours présente) */}
       <div className="flex flex-col gap-3 border-b border-black/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          {champsRecherche && (
-            <input
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-              placeholder="Filtrer…"
-              className="w-full max-w-xs rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-ink-500"
-            />
+          {montreMenu && (
+            <div ref={zoneMenu} className="relative">
+              <button
+                type="button"
+                aria-expanded={menuOuvert}
+                onClick={() => setMenuOuvert((actuel) => !actuel)}
+                className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-ink-700"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="11" cy="11" r="6" />
+                  <path d="M16 16l4 4" strokeLinecap="round" />
+                </svg>
+                Recherche
+                {(rechercheActive || filtreActif) && (
+                  <span className="h-2 w-2 rounded-full bg-[#0b3d2e]" aria-hidden />
+                )}
+              </button>
+              {menuOuvert && (
+                <div className="absolute left-0 z-20 mt-2 w-72 space-y-2 rounded-xl border border-black/10 bg-white p-3 shadow-lg [&_select]:w-full">
+                  {champsRecherche && (
+                    <input
+                      autoFocus
+                      value={recherche}
+                      onChange={(evenement) => setRecherche(evenement.target.value)}
+                      placeholder="Rechercher…"
+                      aria-label="Rechercher dans le tableau"
+                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-ink-500"
+                    />
+                  )}
+                  {filtresSupplementaires}
+                </div>
+              )}
+            </div>
           )}
-          {filtresSupplementaires}
         </div>
         <div className="flex items-center gap-2">
           <select
             value={parPage}
-            onChange={(e) => setParPage(Number(e.target.value))}
+            onChange={(evenement) => setParPage(Number(evenement.target.value))}
             className="rounded-xl border border-black/10 bg-white px-2.5 py-2 text-sm"
             aria-label="Lignes par page"
           >
-            {[5, 10, 20, 50].map((n) => (
+            {tailles.map((n) => (
               <option key={n} value={n}>
                 {n} / page
               </option>
@@ -137,8 +186,8 @@ export function TableauDonnees<T>({
         </div>
       </div>
 
-      {chargement ? (
-        <ContentLoader />
+      {chargement || actualisation ? (
+        <SpinnerPourcentage />
       ) : filtrees.length === 0 ? (
         <p className="px-5 py-14 text-center text-sm text-ink-500">{messageVide}</p>
       ) : (
@@ -181,16 +230,13 @@ export function TableauDonnees<T>({
                         ))}
                         {montreActions && (
                           <td className="px-4 py-3">
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
                               {renduDetail && (
-                                <button
-                                  type="button"
+                                <BoutonActionCrud
+                                  variante="voir"
+                                  libelle={ouverte ? 'Replier le détail' : 'Voir le détail'}
                                   onClick={() => basculerDetail(id)}
-                                  aria-expanded={ouverte}
-                                  className="text-sm font-medium text-forest-800 hover:underline"
-                                >
-                                  {ouverte ? 'Replier' : 'Détail'}
-                                </button>
+                                />
                               )}
                               {actions?.(ligne)}
                             </div>
@@ -211,7 +257,6 @@ export function TableauDonnees<T>({
             </table>
           </div>
 
-          {/* Pagination (toujours visible) */}
           <div className="flex flex-col gap-2 border-t border-black/8 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <p>
               {filtrees.length} résultat{filtrees.length > 1 ? 's' : ''}

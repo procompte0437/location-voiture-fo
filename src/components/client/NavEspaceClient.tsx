@@ -4,10 +4,11 @@ import { useAuth } from '../../context/AuthContext'
 const LIENS = [
   { to: '/mes-reservations', libelle: 'Mes réservations', end: true },
   { to: '/mes-reservations/nouvelle', libelle: 'Nouvelle réservation' },
+  { to: '/mes-reservations/espace', libelle: 'Espace client' },
 ]
 
 /**
- * Navigation interne de l’espace réservateur (hors navbar site).
+ * Onglets de l’espace réservateur (navigation hors navbar site).
  */
 export function NavEspaceClient() {
   const { user } = useAuth()

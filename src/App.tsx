@@ -7,8 +7,8 @@ import { VehicleDetailPage } from './pages/VehicleDetailPage'
 import { LoginPage, RegisterPage } from './pages/auth/AuthPages'
 import {
   ConfirmationPage,
-  GuestBookingLookupPage,
   MyBookingsPage,
+  PageEspaceClient,
   PageNouvelleReservation,
 } from './pages/client/BookingPages'
 import { DispositionPartenaire } from './components/partenaire/CoquePartenaire'
@@ -44,6 +44,12 @@ import {
   AdminVehiclesPage,
 } from './pages/admin/AdminVehiclesPages'
 import { FaqPage } from './pages/MiscPages'
+import {
+  PageCharteConfidentialite,
+  PageConditionsGenerales,
+  PageContact,
+  PagePlanDuSite,
+} from './pages/PagesInstitutionnelles'
 
 export default function App() {
   return (
@@ -59,7 +65,11 @@ export default function App() {
           <Route path="/inscription" element={<RegisterPage />} />
           <Route path="/mes-reservations" element={<MyBookingsPage />} />
           <Route path="/mes-reservations/nouvelle" element={<PageNouvelleReservation />} />
-          <Route path="/reservation/trouver" element={<GuestBookingLookupPage />} />
+          <Route path="/mes-reservations/espace" element={<PageEspaceClient />} />
+          <Route
+            path="/reservation/trouver"
+            element={<Navigate to="/connexion?redirect=%2Fmes-reservations" replace />}
+          />
           <Route path="/confirmation/:id" element={<ConfirmationPage />} />
           <Route path="/devenir-partenaire" element={<PageDevenirPartenaire />} />
           <Route path="/partenaire/inscription" element={<PageInscriptionPartenaire />} />
@@ -88,6 +98,10 @@ export default function App() {
             <Route path="agences" element={<AdminAgencesPage />} />
           </Route>
           <Route path="/faq" element={<FaqPage />} />
+          <Route path="/charte-de-confidentialite" element={<PageCharteConfidentialite />} />
+          <Route path="/conditions-generales" element={<PageConditionsGenerales />} />
+          <Route path="/plan-du-site" element={<PagePlanDuSite />} />
+          <Route path="/contact" element={<PageContact />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -8,12 +8,13 @@ import {
 } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { PublicHeader } from '../../components/layout/Header'
+import { PiedDePage } from '../../components/layout/PiedDePage'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
 import type { ContexteSortiePartenaire } from '../../components/partenaire/CoquePartenaire'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
-import api, { formatXaf } from '../../lib/api'
+import api, { formatXaf, messageErreurApi } from '../../lib/api'
 
 /** Ligne véhicule renvoyée par l’API partenaire. */
 type LigneVehicule = {
@@ -53,6 +54,7 @@ function libelleStatut(code: string) {
     ongoing: 'En cours',
     completed: 'Terminée',
     cancelled: 'Annulée',
+    archived: 'Archivée',
     new: 'Nouveau',
     info_requested: 'Infos demandées',
   }
@@ -132,38 +134,48 @@ function TuileStat({
 /** Landing marketing « Devenir partenaire ». */
 export function PageDevenirPartenaire() {
   return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-3xl px-4 py-16 md:px-6 md:py-24">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">Espace pro</p>
-          <h1 className="mt-2 font-display text-4xl font-bold text-ink-900 md:text-5xl">
-            Devenir partenaire
-          </h1>
-          <p className="mt-4 text-lg text-ink-700">
-            Agences, entreprises ou particuliers : publiez vos véhicules sur LV241 après validation de
-            votre dossier.
-          </p>
-          <ul className="mt-8 space-y-3 text-ink-700">
-            {[
-              'Inscription ouverte à tous',
-              'Validation sous 48 h ouvrées',
-              'Commission transparente',
-              'Paiement Mobile Money pour vos clients',
-            ].map((element) => (
-              <li key={element} className="flex items-start gap-3">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-500" />
-                {element}
-              </li>
-            ))}
-          </ul>
-          <Link
-            to="/partenaire/inscription"
-            className="mt-10 inline-flex rounded-xl bg-forest-900 px-6 py-3.5 font-semibold text-white transition hover:bg-forest-800"
-          >
-            Créer mon compte partenaire
-          </Link>
+    <div className="relative flex min-h-screen flex-col">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
+        }}
+      />
+      <div className="relative flex flex-1 flex-col">
+        <PublicHeader />
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 md:px-6">
+          <div className="rounded-2xl border border-white/40 bg-white/95 p-8 shadow-xl backdrop-blur-sm md:p-10">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">Espace pro</p>
+            <h1 className="mt-2 font-display text-4xl font-bold text-ink-900 md:text-5xl">
+              Devenir partenaire
+            </h1>
+            <p className="mt-4 text-lg text-ink-700">
+              Agences, entreprises ou particuliers : publiez vos véhicules sur LV241 après validation de
+              votre dossier.
+            </p>
+            <ul className="mt-8 space-y-3 text-ink-700">
+              {[
+                'Inscription ouverte à tous',
+                'Validation sous 48 h ouvrées',
+                'Commission transparente',
+                'Paiement Mobile Money pour vos clients',
+              ].map((element) => (
+                <li key={element} className="flex items-start gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-500" />
+                  {element}
+                </li>
+              ))}
+            </ul>
+            <Link
+              to="/partenaire/inscription"
+              className="mt-10 inline-flex rounded-xl bg-forest-900 px-6 py-3.5 font-semibold text-white transition hover:bg-forest-800"
+            >
+              Créer mon compte partenaire
+            </Link>
+          </div>
         </div>
+        <PiedDePage />
       </div>
     </div>
   )
@@ -224,8 +236,8 @@ export function PageInscriptionPartenaire() {
         await register({ ...compte, role: 'partner' })
       }
       setEtape(2)
-    } catch {
-      setErreur('Impossible de créer le compte.')
+    } catch (err) {
+      setErreur(messageErreurApi(err, 'Impossible de créer le compte.'))
     }
   }
 
@@ -238,8 +250,7 @@ export function PageInscriptionPartenaire() {
       setMessage(data.message)
       setEtape(3)
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      setErreur(msg || 'Erreur lors de la soumission du dossier.')
+      setErreur(messageErreurApi(err, 'Erreur lors de la soumission du dossier.'))
     }
   }
 
@@ -247,9 +258,17 @@ export function PageInscriptionPartenaire() {
   const progression = Math.round((etape / 3) * 100)
 
   return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="mx-auto max-w-xl px-4 py-12">
+    <div className="relative flex min-h-screen flex-col">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
+        }}
+      />
+      <div className="relative flex flex-1 flex-col">
+        <PublicHeader />
+        <div className="mx-auto w-full max-w-xl flex-1 px-4 py-12">
         <div className="mb-4 flex items-center gap-3">
           {etape > 1 && etape < 3 ? (
             <button
@@ -277,8 +296,8 @@ export function PageInscriptionPartenaire() {
             </Link>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="font-display text-3xl font-bold text-forest-950">Inscription partenaire</h1>
-            <p className="mt-1 text-sm text-ink-500">
+            <h1 className="font-display text-3xl font-bold text-white">Inscription partenaire</h1>
+            <p className="mt-1 text-sm text-white/80">
               Étape {etape} / 3 — {libellesEtapes[etape - 1]}
             </p>
           </div>
@@ -291,11 +310,11 @@ export function PageInscriptionPartenaire() {
               style={{ width: `${progression}%` }}
             />
           </div>
-          <div className="mt-2 flex justify-between text-[11px] font-medium uppercase tracking-wide text-ink-400">
+          <div className="mt-2 flex justify-between text-[11px] font-medium uppercase tracking-wide text-white/60">
             {libellesEtapes.map((libelle, index) => (
               <span
                 key={libelle}
-                className={index + 1 <= etape ? 'text-forest-800' : undefined}
+                className={index + 1 <= etape ? 'text-white' : undefined}
               >
                 {libelle}
               </span>
@@ -407,6 +426,8 @@ export function PageInscriptionPartenaire() {
             </Link>
           </div>
         )}
+        </div>
+        <PiedDePage />
       </div>
     </div>
   )
@@ -1380,12 +1401,12 @@ export function PageAidePartenaire() {
           <p className="mt-3 text-sm text-ink-500">
             Notre équipe partenaire vous répond sous 24 h ouvrées.
           </p>
-          <a
-            href="mailto:support@locagabon.ga"
+          <Link
+            to="/contact"
             className="mt-6 inline-flex rounded-xl bg-forest-900 px-5 py-3 text-sm font-semibold text-white hover:bg-forest-800"
           >
             Écrire au support
-          </a>
+          </Link>
           <Link to="/faq" className="mt-4 block text-sm text-ink-600 underline">
             Voir la FAQ publique
           </Link>

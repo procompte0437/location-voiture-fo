@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { NavEspaceClient } from '../../components/client/NavEspaceClient'
 import { PublicHeader } from '../../components/layout/Header'
 import { SearchForm } from '../../components/search/SearchForm'
@@ -20,6 +20,7 @@ function libelleStatut(statut: string) {
     cancelled: 'Annulée',
     expired: 'Expirée',
     refunded: 'Remboursée',
+    archived: 'Archivée',
   }
   return map[statut] || statut
 }
@@ -83,11 +84,19 @@ export function ConfirmationPage() {
   }`
 
   return (
-    <div className="min-h-screen bg-sand-50">
+    <div className="relative min-h-screen">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
+        }}
+      />
+      <div className="relative">
       <PublicHeader />
       <div className="mx-auto max-w-lg px-4 py-10 md:py-16">
         <NavEspaceClient />
-        <div className="rounded-2xl border border-forest-600/20 bg-white p-8 text-center shadow-sm">
+        <div className="rounded-2xl border border-white/40 bg-white/95 p-8 text-center shadow-xl backdrop-blur-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">Confirmation</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-forest-950">
             Réservation en cours
@@ -138,6 +147,7 @@ export function ConfirmationPage() {
           </div>
         </div>
       </div>
+      </div>
     </div>
   )
 }
@@ -156,7 +166,7 @@ const FILTRES_STATUT: { cle: FiltreStatutClient; libelle: string; statuts?: stri
   {
     cle: 'annulees',
     libelle: 'Annulées',
-    statuts: ['cancelled', 'expired', 'refunded'],
+    statuts: ['cancelled', 'expired', 'refunded', 'archived'],
   },
 ]
 
@@ -540,6 +550,133 @@ export function MyBookingsPage() {
   )
 }
 
+const LIENS_ESPACE_CLIENT = [
+  {
+    to: '/#agences',
+    libelle: 'Agences de location',
+    description: 'Carte des provinces et points de retrait au Gabon.',
+  },
+  {
+    to: '/vehicules',
+    libelle: 'Véhicules',
+    description: 'Parcourir le catalogue et comparer les offres.',
+  },
+  {
+    to: '/devenir-partenaire',
+    libelle: 'Professionnels',
+    description: 'Devenir partenaire et publier vos véhicules.',
+  },
+  {
+    to: '/faq',
+    libelle: 'Aide',
+    description: 'Questions fréquentes et assistance.',
+  },
+]
+
+/**
+ * Hub compte client : liens retirés de la navbar une fois connecté.
+ */
+export function PageEspaceClient() {
+  const { user, loading: authLoading, logout } = useAuth()
+  const navigate = useNavigate()
+
+  async function seDeconnecter() {
+    await logout()
+    navigate('/', { replace: true })
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-sand-50">
+        <PublicHeader />
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <ContentLoader label="Chargement…" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Navigate
+        to={`/connexion?redirect=${encodeURIComponent('/mes-reservations/espace')}`}
+        replace
+      />
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-sand-50">
+      <PublicHeader />
+      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
+        <NavEspaceClient />
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+            Espace client
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
+            Mon compte
+          </h1>
+          <p className="mt-1.5 text-sm text-ink-500">
+            Accédez au site, à l’aide et à vos informations de connexion.
+          </p>
+        </div>
+
+        <section className="mb-6 rounded-2xl border border-black/8 bg-white p-5 md:p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Identité</h2>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-ink-500">Nom</dt>
+              <dd className="font-medium text-ink-900">{user.name}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-ink-500">Email</dt>
+              <dd className="font-medium text-ink-900">{user.email}</dd>
+            </div>
+            {user.phone && (
+              <div>
+                <dt className="text-xs text-ink-500">Téléphone</dt>
+                <dd className="font-medium text-ink-900">{user.phone}</dd>
+              </div>
+            )}
+          </dl>
+        </section>
+
+        <section className="rounded-2xl border border-black/8 bg-white p-2">
+          <ul className="divide-y divide-black/6">
+            {LIENS_ESPACE_CLIENT.map((lien) => (
+              <li key={lien.to}>
+                <Link
+                  to={lien.to}
+                  className="flex items-start justify-between gap-4 rounded-xl px-4 py-3.5 transition hover:bg-black/[0.03]"
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-ink-900">{lien.libelle}</span>
+                    <span className="mt-0.5 block text-sm text-ink-500">{lien.description}</span>
+                  </span>
+                  <span aria-hidden className="mt-0.5 text-ink-300">
+                    →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => void seDeconnecter()}
+            className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-800"
+          >
+            Déconnexion
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Formulaire de nouvelle réservation dans l’espace client (hors hero du site). */
 export function PageNouvelleReservation() {
   const { user, loading: authLoading } = useAuth()
@@ -586,65 +723,3 @@ export function PageNouvelleReservation() {
   )
 }
 
-export function GuestBookingLookupPage() {
-  const [form, setForm] = useState({ reference: '', email: '' })
-  const [booking, setBooking] = useState<Booking | null>(null)
-  const [error, setError] = useState('')
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError('')
-    setBooking(null)
-    try {
-      const { data } = await api.post('/bookings/guest-lookup', form)
-      setBooking(data.data)
-    } catch {
-      setError('Réservation introuvable. Vérifiez la référence et l’email.')
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="mx-auto max-w-lg px-4 py-12">
-        <NavEspaceClient />
-        <h1 className="font-display text-3xl font-bold text-forest-950">Retrouver ma réservation</h1>
-        <form onSubmit={onSubmit} className="mt-6 space-y-3 rounded-2xl border border-sand-200 bg-white p-6">
-          <input
-            required
-            placeholder="Référence (ex. LG-XXXX)"
-            value={form.reference}
-            onChange={(e) => setForm((f) => ({ ...f, reference: e.target.value }))}
-            className="w-full rounded-xl border border-sand-200 px-4 py-3"
-          />
-          <input
-            required
-            type="email"
-            placeholder="Email utilisé à la réservation"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            className="w-full rounded-xl border border-sand-200 px-4 py-3"
-          />
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <button type="submit" className="w-full rounded-xl bg-forest-900 py-3 font-semibold text-white">
-            Rechercher
-          </button>
-        </form>
-        {booking && (
-          <div className="mt-6 rounded-2xl border border-sand-200 bg-white p-6">
-            <p className="font-semibold">{booking.reference}</p>
-            <p className="text-sm text-ink-500">{libelleStatut(booking.status)}</p>
-            <p className="mt-2 font-semibold">{formatXaf(booking.total_amount)}</p>
-            <Link
-              to={`/confirmation/${booking.id}`}
-              state={{ booking }}
-              className="mt-4 inline-block text-forest-700 underline"
-            >
-              Voir la confirmation
-            </Link>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}

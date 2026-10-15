@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
+import {
+  BarreEtapesReservation,
+  indiceEtape,
+  type EtapeReservation,
+} from '../components/reservation/BarreEtapesReservation'
 import { DateRangePicker } from '../components/search/DateRangePicker'
+import { DisponibilitesVehicule } from '../components/vehicles/DisponibilitesVehicule'
 import { ContentLoader } from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { useCatalog } from '../context/CatalogContext'
@@ -40,15 +46,6 @@ function formaterMoment(iso: string) {
     indice: (d.getDay() + 6) % 7,
   }
 }
-
-const ETAPES_RESERVATION = [
-  { id: 'conducteur', label: 'Conducteur' },
-  { id: 'reservation', label: 'Réservation' },
-  { id: 'protection', label: 'Protection' },
-  { id: 'paiement', label: 'Paiement' },
-] as const
-
-type EtapeReservation = (typeof ETAPES_RESERVATION)[number]['id']
 
 function datesParDefaut() {
   const pickup = new Date()
@@ -161,6 +158,11 @@ export function VehicleDetailPage() {
       })
       .then(({ data }) => {
         setDisponible(!!data.available)
+        if (data.calendar) {
+          setVehicle((actuel) =>
+            actuel ? { ...actuel, calendar: data.calendar, available: !!data.available } : actuel,
+          )
+        }
         if (!data.available) {
           setError('Ce véhicule n’est pas libre sur ces dates.')
         } else {
@@ -297,12 +299,18 @@ export function VehicleDetailPage() {
     setEtape('reservation')
   }
 
-  function indiceEtape(id: EtapeReservation) {
-    return ETAPES_RESERVATION.findIndex((e) => e.id === id)
-  }
-
   function allerEtape(id: EtapeReservation) {
     if (indiceEtape(id) > indiceEtape(etape)) return
+    if (id === 'recherche') {
+      const qs = new URLSearchParams()
+      if (pickupAt) qs.set('pickup_at', pickupAt)
+      if (returnAt) qs.set('return_at', returnAt)
+      qs.set('driver_age', String(driverAge))
+      if (locationId) qs.set('location_id', String(locationId))
+      if (lieuLabel) qs.set('location_label', lieuLabel)
+      navigate(`/recherche?${qs.toString()}`)
+      return
+    }
     setEtape(id)
   }
 
@@ -437,47 +445,7 @@ export function VehicleDetailPage() {
         </aside>
 
         <form onSubmit={onBook} className="space-y-4">
-          <nav aria-label="Étapes de la réservation" className="rounded-xl border border-sand-200 bg-white px-3 py-5 sm:px-6">
-            <div className="relative">
-              <div className="absolute left-[12.5%] right-[12.5%] top-4 h-1 rounded-full bg-sand-200" />
-              <div
-                className="absolute left-[12.5%] top-4 h-1 rounded-full bg-forest-700 transition-all"
-                style={{ width: `${(indiceEtape(etape) / (ETAPES_RESERVATION.length - 1)) * 75}%` }}
-              />
-              <ol className="relative grid grid-cols-4">
-                {ETAPES_RESERVATION.map((item, index) => {
-                  const atteinte = index <= indiceEtape(etape)
-                  const courante = item.id === etape
-                  return (
-                    <li key={item.id} className="flex flex-col items-center gap-2 text-center">
-                      <button
-                        type="button"
-                        disabled={!atteinte}
-                        onClick={() => allerEtape(item.id)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                          courante
-                            ? 'bg-forest-700 text-white ring-4 ring-forest-100'
-                            : atteinte
-                              ? 'bg-forest-700 text-white'
-                              : 'bg-sand-200 text-ink-500'
-                        } disabled:cursor-default`}
-                        aria-current={courante ? 'step' : undefined}
-                      >
-                        {index + 1}
-                      </button>
-                      <span
-                        className={`text-xs font-semibold sm:text-sm ${
-                          courante ? 'text-forest-900' : atteinte ? 'text-forest-700' : 'text-ink-500'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
-            </div>
-          </nav>
+          <BarreEtapesReservation etape={etape} onChoisir={allerEtape} />
 
           {etape === 'conducteur' && (
           <section className="rounded-xl border border-sand-200 bg-white p-5">
@@ -592,12 +560,9 @@ export function VehicleDetailPage() {
               <span>Caution (franchise)</span>
               <span>{formatXaf(vehicle.deposit_amount)}</span>
             </div>
-            {disponible === true && (
-              <p className="mt-2 text-sm text-forest-800">Véhicule libre sur ces dates.</p>
-            )}
-            {disponible === false && (
-              <p className="mt-2 text-sm text-red-700">Indisponible sur ces dates.</p>
-            )}
+            <div className="mt-3">
+              <DisponibilitesVehicule calendrier={vehicle.calendar} disponible={disponible} />
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -617,31 +582,43 @@ export function VehicleDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-sand-200 bg-white p-5">
-            <h2 className="font-semibold">Inclus dans le prix</h2>
-            <ul className="mt-3 grid gap-2 text-sm text-ink-800 sm:grid-cols-2">
-              <li>✓ Prix annoncé en FCFA, sans frais cachés</li>
-              <li>✓ {vehicle.free_cancellation ? 'Annulation gratuite' : 'Annulation selon le partenaire'}</li>
-              <li>✓ Carburant : {libelleCarburant(vehicle.fuel_policy)}</li>
-              <li>✓ {fuelLabel(vehicle.fuel)} · {transmissionLabel(vehicle.transmission)}</li>
-              {vehicle.air_conditioning && <li>✓ Climatisation</li>}
-              <li>✓ {vehicle.airport_delivery ? 'Livraison aéroport possible' : 'Retrait en agence'}</li>
-              <li>✓ Paiement Airtel Money, Moov Money ou carte</li>
-            </ul>
-          </section>
-
-          <section className="rounded-xl border border-sand-200 bg-white p-5 text-sm text-ink-800">
-            <h2 className="font-semibold text-neutral-950">Conseils avant de partir</h2>
-            <ul className="mt-3 space-y-2">
-              <li>✓ Le lieu de retrait est indiqué avant la confirmation.</li>
-              <li>✓ Âge minimum du conducteur : {vehicle.min_driver_age} ans, permis en cours de validité.</li>
-              <li>
-                ✓ {vehicle.booking_mode === 'instant'
-                  ? 'Réservation instantanée chez ce partenaire.'
-                  : 'Le partenaire confirme la demande avant le départ.'}
-              </li>
-            </ul>
-          </section>
+          <details className="group rounded-xl border border-sand-200 bg-white">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-semibold text-forest-950 [&::-webkit-details-marker]:hidden">
+              Inclus dans le prix et conseils
+              <span className="text-sm text-ink-500 group-open:hidden" aria-hidden>
+                Déplier
+              </span>
+              <span className="hidden text-sm text-ink-500 group-open:inline" aria-hidden>
+                Plier
+              </span>
+            </summary>
+            <div className="space-y-5 border-t border-sand-100 px-5 py-4">
+              <div>
+                <h2 className="font-semibold">Inclus dans le prix</h2>
+                <ul className="mt-3 grid gap-2 text-sm text-ink-800 sm:grid-cols-2">
+                  <li>✓ Prix annoncé en FCFA, sans frais cachés</li>
+                  <li>✓ {vehicle.free_cancellation ? 'Annulation gratuite' : 'Annulation selon le partenaire'}</li>
+                  <li>✓ Carburant : {libelleCarburant(vehicle.fuel_policy)}</li>
+                  <li>✓ {fuelLabel(vehicle.fuel)} · {transmissionLabel(vehicle.transmission)}</li>
+                  {vehicle.air_conditioning && <li>✓ Climatisation</li>}
+                  <li>✓ {vehicle.airport_delivery ? 'Livraison aéroport possible' : 'Retrait en agence'}</li>
+                  <li>✓ Paiement Airtel Money, Moov Money ou carte</li>
+                </ul>
+              </div>
+              <div className="text-sm text-ink-800">
+                <h2 className="font-semibold text-neutral-950">Conseils avant de partir</h2>
+                <ul className="mt-3 space-y-2">
+                  <li>✓ Le lieu de retrait est indiqué avant la confirmation.</li>
+                  <li>✓ Âge minimum du conducteur : {vehicle.min_driver_age} ans, permis en cours de validité.</li>
+                  <li>
+                    ✓ {vehicle.booking_mode === 'instant'
+                      ? 'Réservation instantanée chez ce partenaire.'
+                      : 'Le partenaire confirme la demande avant le départ.'}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </details>
           </>
           )}
 

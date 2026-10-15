@@ -70,6 +70,11 @@ export interface Vehicle {
   price_per_day: number
   total_price?: number | null
   days?: number | null
+  available?: boolean | null
+  calendar?: {
+    occupied: { starts_at: string; ends_at: string }[]
+    free: { starts_at: string; ends_at: string }[]
+  } | null
   currency: string
   cover_url?: string | null
   media?: { id: number; url: string; is_cover: boolean }[]

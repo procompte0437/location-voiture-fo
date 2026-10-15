@@ -5,7 +5,6 @@ export type CoordonneeChefLieu = {
   slug: string
   x: number
   y: number
-  hub?: boolean
   chefLieu: string
 }
 
@@ -26,7 +25,6 @@ type CoordJson = {
   name: string
   chefLieu: string
   center: { x: number; y: number }
-  hub?: boolean
 }
 
 export const COORDONNEES_CHEFS_LIEUX: CoordonneeChefLieu[] = Object.values(
@@ -37,7 +35,4 @@ export const COORDONNEES_CHEFS_LIEUX: CoordonneeChefLieu[] = Object.values(
   x: c.center.x,
   y: c.center.y,
   chefLieu: c.chefLieu,
-  ...(c.hub ? { hub: true } : {}),
 }))
-
-export const HUB_NATIONAL = { x: 110, y: 175 }

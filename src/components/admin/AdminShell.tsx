@@ -1,4 +1,4 @@
-import { NavLink, Link, useLocation } from 'react-router-dom'
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
@@ -13,11 +13,8 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
     title: 'Pilotage',
     items: [
       { to: '/admin', label: 'Tableau de bord', end: true },
-      { to: '/admin/validation', label: 'Validation' },
       { to: '/admin/audit', label: 'Journal d’audit' },
     ],
-    // Validation = gestion dossiers partenaires → super admin
-    superAdminSeul: false,
   },
   {
     title: 'Catalogue public',
@@ -42,20 +39,13 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
   },
 ]
 
-/** Entrées réservées au super admin (comptes + validation partenaires + agences). */
-const ROUTES_SUPER_ADMIN = new Set(['/admin/validation', '/admin/comptes', '/admin/agences'])
-
+/** Entrées réservées au super admin (comptes + agences). */
+const ROUTES_SUPER_ADMIN = new Set(['/admin/comptes', '/admin/agences'])
 
 const ICONS: Record<string, ReactNode> = {
   '/admin': (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M4 13h6V4H4v9Zm10 7h6V4h-6v16ZM4 20h6v-5H4v5Z" />
-    </svg>
-  ),
-  '/admin/validation': (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="12" cy="12" r="9" />
     </svg>
   ),
   '/admin/audit': (
@@ -106,7 +96,6 @@ const ICONS: Record<string, ReactNode> = {
 
 const PAGE_HINTS: Record<string, string> = {
   '/admin': 'Vue d’ensemble marketplace',
-  '/admin/validation': 'Dossiers partenaires à traiter',
   '/admin/audit': 'Piste d’audit immuable',
   '/admin/vehicules': 'CRUD catalogue — filtres, détail, publication',
   '/admin/vehicules/nouveau': 'Création d’une nouvelle offre véhicule',
@@ -128,8 +117,14 @@ function initials(name?: string) {
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const location = useLocation()
+
+  async function seDeconnecter() {
+    await logout()
+    navigate('/', { replace: true })
+  }
   const estSuperAdmin = user?.role === 'super_admin'
   const menu = NAV.map((groupe) => ({
     ...groupe,
@@ -168,7 +163,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#0b3d2e] text-white transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#061c15] text-white transition-transform duration-300 ease-out lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -244,7 +239,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </Link>
               <button
                 type="button"
-                onClick={() => void logout()}
+                onClick={() => void seDeconnecter()}
                 className="rounded-lg border border-white/15 px-2 py-2 text-xs font-medium text-white/85 transition hover:bg-white/10"
               >
                 Déconnexion

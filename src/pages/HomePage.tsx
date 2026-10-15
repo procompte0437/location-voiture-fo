@@ -4,6 +4,7 @@ import { BandeauConfiance } from '../components/home/BandeauConfiance'
 import { CarteProvincesGabon } from '../components/home/CarteProvincesGabon'
 import { EstimateurPrix } from '../components/home/EstimateurPrix'
 import { FormulaireVitrine } from '../components/home/FormulaireVitrine'
+import { BarreEtapesReservation } from '../components/reservation/BarreEtapesReservation'
 import { Header } from '../components/layout/Header'
 import { PiedDePage } from '../components/layout/PiedDePage'
 import api, { formatXaf } from '../lib/api'
@@ -93,7 +94,8 @@ export function HomePage() {
             backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45) 100%), url('${photoHero}')`,
           }}
         />
-        <div className="relative mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-16 lg:min-h-[420px] lg:py-20">
+        <div className="relative mx-auto max-w-7xl space-y-4 px-4 py-10 md:px-6 md:py-16 lg:min-h-[420px] lg:py-20">
+          <BarreEtapesReservation etape="recherche" />
           <FormulaireVitrine />
         </div>
       </section>

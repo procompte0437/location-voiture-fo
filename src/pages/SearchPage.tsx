@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
+import { BarreEtapesReservation } from '../components/reservation/BarreEtapesReservation'
 import { ContentLoader } from '../components/ui/Spinner'
 import { VehicleCard } from '../components/vehicles/VehicleCard'
 import { useCatalog } from '../context/CatalogContext'
@@ -113,7 +114,8 @@ export function SearchPage() {
       <PublicHeader />
 
       <div className="mx-auto max-w-6xl px-4 pt-8 md:px-6">
-        <h1 className="font-display text-3xl font-bold text-forest-950 md:text-4xl">
+        <BarreEtapesReservation etape="recherche" />
+        <h1 className="mt-6 font-display text-3xl font-bold text-forest-950 md:text-4xl">
           Nos véhicules
         </h1>
         <p className="mt-1.5 text-sm text-ink-500">

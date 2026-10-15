@@ -116,11 +116,6 @@ export function CarteProvincesGabon() {
           <span className="rounded-md bg-[#1E4F8E] px-2.5 py-1 text-xs font-semibold text-white">
             Province {codeActif} — {provinceActive.nom}
           </span>
-          {codeActif === 'G1' && (
-            <span className="rounded-md bg-[#00A651] px-2.5 py-1 text-xs font-semibold text-white">
-              Hub Owendo
-            </span>
-          )}
           {!chargement && !aDesAgences(codeActif) && (
             <span className="rounded-md bg-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-600">
               Aucune agence
@@ -130,12 +125,9 @@ export function CarteProvincesGabon() {
 
         <h3 className="font-display text-xl font-bold text-forest-950 md:text-2xl">
           Agences de {provinceActive.chefLieu}
-          {codeActif === 'G1' ? ' (Hub national)' : ''}
         </h3>
         <p className="mt-1 text-sm text-ink-500">
-          {codeActif === 'G1'
-            ? 'Point d’entrée principal du réseau LV241 — Estuaire / Owendo.'
-            : `Offre de location dans la province ${provinceActive.nom}.`}
+          Offre de location dans la province {provinceActive.nom}.
         </p>
 
         <dl className="mt-5 space-y-3 text-sm">
@@ -349,12 +341,12 @@ export function CarteProvincesGabon() {
                   onMouseEnter={() => setSurvol(c.code)}
                   onMouseLeave={() => setSurvol(null)}
                 >
-                  {(actif || c.hub) && avecAgence && (
+                  {actif && avecAgence && (
                     <circle
                       cx={c.x}
                       cy={c.y}
-                      r={actif ? 19 : 13}
-                      fill={actif ? '#FFDE16' : '#00A651'}
+                      r={19}
+                      fill="#FFDE16"
                       opacity={0.4}
                       className="animate-ping"
                     />
@@ -363,15 +355,7 @@ export function CarteProvincesGabon() {
                     cx={c.x}
                     cy={c.y}
                     r={actif ? 8 : hover ? 7 : 5.5}
-                    fill={
-                      actif
-                        ? '#FFDE16'
-                        : avecAgence
-                          ? c.hub
-                            ? '#00A651'
-                            : '#FFFFFF'
-                          : '#E5E7EB'
-                    }
+                    fill={actif ? '#FFDE16' : avecAgence ? '#FFFFFF' : '#E5E7EB'}
                     stroke={actif ? '#0F2B52' : avecAgence ? '#1E4F8E' : '#9CA3AF'}
                     strokeWidth={2.2}
                     className="transition-all duration-200"
@@ -405,21 +389,13 @@ export function CarteProvincesGabon() {
           </g>
         </svg>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-2.5 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#00A651]" />
-            <span className="text-[11px] font-bold text-slate-800">
-              Hub national : <strong className="text-[#2E68B4]">Owendo (Libreville)</strong>
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-[10.5px] text-slate-600">
-            <span className="flex items-center gap-1 font-medium">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#1E4F8E]" /> Avec agences
-            </span>
-            <span className="flex items-center gap-1 font-medium">
-              <span className="h-2.5 w-2.5 rounded-sm bg-[#9CA3AF]" /> Sans agence
-            </span>
-          </div>
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-2.5 text-[10.5px] text-slate-600">
+          <span className="flex items-center gap-1 font-medium">
+            <span className="h-2.5 w-2.5 rounded-sm bg-[#1E4F8E]" /> Avec agences
+          </span>
+          <span className="flex items-center gap-1 font-medium">
+            <span className="h-2.5 w-2.5 rounded-sm bg-[#9CA3AF]" /> Sans agence
+          </span>
         </div>
         <p className="mt-2 text-center text-[11px] text-ink-500">
           Cliquez sur une province pour voir ses agences. Les zones grises n’ont pas encore

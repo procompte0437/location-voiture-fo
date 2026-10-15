@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../../components/layout/Header'
+import { PiedDePage } from '../../components/layout/PiedDePage'
 import { useAuth } from '../../context/AuthContext'
+import { messageErreurApi } from '../../lib/api'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -21,14 +23,15 @@ export function LoginPage() {
     setError('')
     try {
       const user = await login(email, password)
-      if (redirect && redirect.startsWith('/')) {
-        navigate(redirect)
-      } else if (user.role === 'super_admin' || user.role === 'admin') {
-        navigate('/admin')
-      } else if (user.role === 'partner') {
-        navigate('/partenaire')
+      // Admin / partenaire : toujours leur console (ignore un redirect client type /mes-reservations).
+      if (user.role === 'super_admin' || user.role === 'admin') {
+        navigate('/admin', { replace: true })
+      } else if (user.role === 'partner' || user.role === 'partner_agent') {
+        navigate('/partenaire', { replace: true })
+      } else if (redirect && redirect.startsWith('/')) {
+        navigate(redirect, { replace: true })
       } else {
-        navigate('/mes-reservations')
+        navigate('/mes-reservations', { replace: true })
       }
     } catch {
       setError('Identifiants incorrects.')
@@ -38,22 +41,31 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-sand-50">
+    <div className="relative flex min-h-screen flex-col">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
+        }}
+      />
+      <div className="relative flex flex-1 flex-col">
       <PublicHeader />
-      <div className="mx-auto max-w-md px-4 py-16">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+        <div className="rounded-2xl border border-white/40 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm">
         <h1 className="font-display text-3xl font-bold text-forest-950">Connexion</h1>
         {emailParam ? (
-          <p className="mt-2 text-sm text-ink-600">
+          <p className="mt-2 text-left text-sm text-ink-600">
             Connectez-vous avec l’email de votre réservation et le mot de passe générique affiché
             sur la confirmation (modifiable ensuite).
           </p>
         ) : (
-          <p className="mt-2 text-sm text-ink-500">
+          <p className="mt-2 text-left text-sm text-ink-500">
             Démo : client@locagabon.ga / partenaire@locagabon.ga / admin@locagabon.ga — mot de passe
             : password
           </p>
         )}
-        <form onSubmit={onSubmit} className="mt-8 space-y-4 rounded-2xl border border-sand-200 bg-white p-6">
+        <form onSubmit={onSubmit} className="mt-6 space-y-4 text-left">
           <input
             type="email"
             value={email}
@@ -92,6 +104,9 @@ export function LoginPage() {
             S’inscrire
           </Link>
         </p>
+        </div>
+      </div>
+      <PiedDePage />
       </div>
     </div>
   )
@@ -117,8 +132,8 @@ export function RegisterPage() {
     try {
       await register(form)
       navigate('/mes-reservations')
-    } catch {
-      setError('Inscription impossible. Vérifiez les champs.')
+    } catch (err) {
+      setError(messageErreurApi(err, 'Inscription impossible. Vérifiez les champs.'))
     } finally {
       setLoading(false)
     }

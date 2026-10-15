@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PublicHeader } from '../components/layout/Header'
+import { PiedDePage } from '../components/layout/PiedDePage'
 import { ContentLoader } from '../components/ui/Spinner'
 import api from '../lib/api'
 
@@ -11,9 +12,9 @@ export function FaqPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-sand-50">
+    <div className="flex min-h-screen flex-col bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto max-w-2xl px-4 py-16">
+      <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-16">
         <h1 className="font-display text-3xl font-bold text-forest-950">FAQ</h1>
         <div className="mt-8 space-y-4">
           {items.map((item) => (
@@ -25,6 +26,7 @@ export function FaqPage() {
           {items.length === 0 && <ContentLoader />}
         </div>
       </div>
+      <PiedDePage />
     </div>
   )
 }

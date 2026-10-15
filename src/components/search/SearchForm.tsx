@@ -261,10 +261,10 @@ export function SearchForm({ compact = false, espaceClient = false, vitrine = fa
         {!espaceClient && (
           <button
             type="button"
-            onClick={() => navigate('/reservation/trouver')}
+            onClick={() => navigate('/connexion?redirect=/mes-reservations')}
             className="text-sm font-medium text-forest-700 underline-offset-4 hover:underline"
           >
-            {vitrine ? 'Déjà une réservation ?' : 'Voir / modifier ma réservation'}
+            {vitrine ? 'Déjà une réservation ?' : 'Voir mes réservations'}
           </button>
         )}
       </div>

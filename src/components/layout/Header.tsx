@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 function estReservateur(user: { role: string; owned_partner?: unknown }) {
@@ -7,7 +7,10 @@ function estReservateur(user: { role: string; owned_partner?: unknown }) {
 }
 
 function lienEspacePro(user: { role: string; owned_partner?: unknown }) {
-  if (user.role === 'admin' || user.role === 'super_admin') {
+  if (user.role === 'super_admin') {
+    return { to: '/admin', label: 'Console super admin' }
+  }
+  if (user.role === 'admin') {
     return { to: '/admin', label: 'Console admin' }
   }
   if (user.role === 'partner' || user.role === 'partner_agent' || user.owned_partner) {
@@ -18,17 +21,20 @@ function lienEspacePro(user: { role: string; owned_partner?: unknown }) {
 
 /**
  * En-tête type comparateur : barre verte + sous-barre noire (agences).
+ * Connecté : liens publics et « Mon compte » retirés — navigation via l’espace client.
  */
 function BarreNavigation() {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
   const [menuOuvert, setMenuOuvert] = useState(false)
+  const connecte = !!user
   const espacePro = user && !estReservateur(user) ? lienEspacePro(user) : null
-  const lienCompte = user
-    ? estReservateur(user)
-      ? '/mes-reservations'
-      : espacePro?.to || '/connexion'
-    : '/connexion'
+
+  async function seDeconnecter() {
+    await logout()
+    navigate('/', { replace: true })
+  }
 
   useEffect(() => {
     setMenuOuvert(false)
@@ -43,16 +49,35 @@ function BarreNavigation() {
           </Link>
 
           <div className="flex items-center gap-3">
-            <Link
-              to={lienCompte}
-              className="inline-flex items-center gap-2 rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="8" r="3.2" />
-                <path d="M5 19.2c1.4-3 3.8-4.5 7-4.5s5.6 1.5 7 4.5" strokeLinecap="round" />
-              </svg>
-              Mon compte
-            </Link>
+            {!connecte && (
+              <Link
+                to="/connexion"
+                className="inline-flex items-center gap-2 rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="12" cy="8" r="3.2" />
+                  <path d="M5 19.2c1.4-3 3.8-4.5 7-4.5s5.6 1.5 7 4.5" strokeLinecap="round" />
+                </svg>
+                Mon compte
+              </Link>
+            )}
+            {espacePro && (
+              <Link
+                to={espacePro.to}
+                className="inline-flex items-center gap-2 rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+              >
+                {espacePro.label}
+              </Link>
+            )}
+            {connecte && (
+              <button
+                type="button"
+                onClick={() => void seDeconnecter()}
+                className="hidden rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10 md:inline-flex"
+              >
+                Déconnexion
+              </button>
+            )}
             <button
               type="button"
               className="rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold md:hidden"
@@ -67,25 +92,26 @@ function BarreNavigation() {
         {menuOuvert && (
           <div className="border-t border-white/20 px-4 py-3 md:hidden">
             <nav className="flex flex-col gap-2 text-sm font-semibold">
-              <Link to="/vehicules" onClick={() => setMenuOuvert(false)}>
-                Véhicules
-              </Link>
-              <Link to="/#agences" onClick={() => setMenuOuvert(false)}>
-                Agences
-              </Link>
-              <Link to="/faq" onClick={() => setMenuOuvert(false)}>
-                Aide
-              </Link>
-              <Link to="/reservation/trouver" onClick={() => setMenuOuvert(false)}>
-                Voir la réservation
-              </Link>
+              {!connecte && (
+                <>
+                  <Link to="/vehicules" onClick={() => setMenuOuvert(false)}>
+                    Véhicules
+                  </Link>
+                  <Link to="/#agences" onClick={() => setMenuOuvert(false)}>
+                    Agences
+                  </Link>
+                  <Link to="/faq" onClick={() => setMenuOuvert(false)}>
+                    Aide
+                  </Link>
+                </>
+              )}
               {espacePro && (
                 <Link to={espacePro.to} onClick={() => setMenuOuvert(false)}>
                   {espacePro.label}
                 </Link>
               )}
-              {user && (
-                <button type="button" onClick={() => void logout()} className="text-left">
+              {connecte && (
+                <button type="button" onClick={() => void seDeconnecter()} className="text-left">
                   Déconnexion
                 </button>
               )}
@@ -94,35 +120,33 @@ function BarreNavigation() {
         )}
       </div>
 
-      <div className="bg-neutral-950 text-white">
-        <div className="mx-auto flex max-w-7xl items-center px-4 py-2 md:px-6">
-          <Link
-            to="/#agences"
-            className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-gold-400"
-          >
-            Agences de location de voitures
-            <span aria-hidden className="text-[10px]">
-              ▾
-            </span>
-          </Link>
-          <nav className="ml-auto hidden items-center gap-5 text-sm md:flex">
-            <Link to="/vehicules" className="hover:text-gold-400">
-              Véhicules
+      {/* Sous-barre publique : masquée une fois connecté */}
+      {!connecte && (
+        <div className="bg-neutral-950 text-white">
+          <div className="mx-auto flex max-w-7xl items-center px-4 py-2 md:px-6">
+            <Link
+              to="/#agences"
+              className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-gold-400"
+            >
+              Agences de location de voitures
+              <span aria-hidden className="text-[10px]">
+                ▾
+              </span>
             </Link>
-            <Link to="/devenir-partenaire" className="hover:text-gold-400">
-              Professionnels
-            </Link>
-            <Link to="/faq" className="hover:text-gold-400">
-              Aide
-            </Link>
-            {user && (
-              <button type="button" onClick={() => void logout()} className="hover:text-gold-400">
-                Déconnexion
-              </button>
-            )}
-          </nav>
+            <nav className="ml-auto hidden items-center gap-5 text-sm md:flex">
+              <Link to="/vehicules" className="hover:text-gold-400">
+                Véhicules
+              </Link>
+              <Link to="/devenir-partenaire" className="hover:text-gold-400">
+                Professionnels
+              </Link>
+              <Link to="/faq" className="hover:text-gold-400">
+                Aide
+              </Link>
+            </nav>
+          </div>
         </div>
-      </div>
+      )}
     </header>
   )
 }
