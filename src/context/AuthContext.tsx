@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password })
+    if (data.etape) return data as User
     localStorage.setItem('locagabon_token', data.token)
     setUser(data.user)
     return data.user as User

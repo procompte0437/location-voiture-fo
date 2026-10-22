@@ -54,19 +54,27 @@ export function HomePage() {
   const [chargementVedettes, setChargementVedettes] = useState(true)
 
   useEffect(() => {
-    void api
-      .get('/catalog/home')
-      .then(({ data }) => setCatalog(data.data))
-      .catch(() => undefined)
+    // Le serveur local ne traite qu’une requête à la fois : on laisse d’abord
+    // partir le décompte de disponibilité du formulaire.
+    const delai = window.setTimeout(() => {
+      void api
+        .get('/catalog/home')
+        .then(({ data }) => setCatalog(data.data))
+        .catch(() => undefined)
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [])
 
   useEffect(() => {
-    setChargementVedettes(true)
-    void api
-      .get('/vehicles/search', { params: { per_page: 24, page: 1, sort: 'rating' } })
-      .then(({ data }) => setVehicules(data.data || []))
-      .catch(() => setVehicules([]))
-      .finally(() => setChargementVedettes(false))
+    const delai = window.setTimeout(() => {
+      setChargementVedettes(true)
+      void api
+        .get('/vehicles/search', { params: { per_page: 24, page: 1, sort: 'rating' } })
+        .then(({ data }) => setVehicules(data.data || []))
+        .catch(() => setVehicules([]))
+        .finally(() => setChargementVedettes(false))
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [])
 
   useEffect(() => {

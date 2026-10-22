@@ -49,44 +49,50 @@ export function CarteProvincesGabon() {
   const slugActif = provinceActive.slug
 
   useEffect(() => {
-    void api
-      .get('/catalog/provinces')
-      .then(({ data }) => {
-        const map: Record<string, CouvertureProvince> = {}
-        for (const p of data.data || []) {
-          map[p.slug] = {
-            slug: p.slug,
-            agences_count: Number(p.agences_count || 0),
-            has_agences: Boolean(p.has_agences),
+    const delai = window.setTimeout(() => {
+      void api
+        .get('/catalog/provinces')
+        .then(({ data }) => {
+          const map: Record<string, CouvertureProvince> = {}
+          for (const p of data.data || []) {
+            map[p.slug] = {
+              slug: p.slug,
+              agences_count: Number(p.agences_count || 0),
+              has_agences: Boolean(p.has_agences),
+            }
           }
-        }
-        setCouverture(map)
-      })
-      .catch(() => setCouverture({}))
+          setCouverture(map)
+        })
+        .catch(() => setCouverture({}))
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [])
 
   useEffect(() => {
-    setChargement(true)
-    setErreur('')
-    void api
-      .get(`/catalog/provinces/${slugActif}`)
-      .then(({ data }) => {
-        setDetail(data.data)
-        const count = (data.data?.agences || []).length
-        setCouverture((actuel) => ({
-          ...actuel,
-          [slugActif]: {
-            slug: slugActif,
-            agences_count: count,
-            has_agences: count > 0,
-          },
-        }))
-      })
-      .catch(() => {
-        setDetail(null)
-        setErreur('Impossible de charger les agences de cette province.')
-      })
-      .finally(() => setChargement(false))
+    const delai = window.setTimeout(() => {
+      setChargement(true)
+      setErreur('')
+      void api
+        .get(`/catalog/provinces/${slugActif}`)
+        .then(({ data }) => {
+          setDetail(data.data)
+          const count = (data.data?.agences || []).length
+          setCouverture((actuel) => ({
+            ...actuel,
+            [slugActif]: {
+              slug: slugActif,
+              agences_count: count,
+              has_agences: count > 0,
+            },
+          }))
+        })
+        .catch(() => {
+          setDetail(null)
+          setErreur('Impossible de charger les agences de cette province.')
+        })
+        .finally(() => setChargement(false))
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [slugActif])
 
   function aDesAgences(code: string) {

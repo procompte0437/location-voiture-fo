@@ -22,6 +22,17 @@ api.interceptors.request.use((config) => {
 
 export default api
 
+/** Télécharge un PDF ou un CSV produit par Laravel, avec le jeton de session. */
+export async function telechargerFichier(url: string, nom: string) {
+  const { data } = await api.get(url, { responseType: 'blob' })
+  const lien = URL.createObjectURL(data)
+  const ancre = document.createElement('a')
+  ancre.href = lien
+  ancre.download = nom
+  ancre.click()
+  URL.revokeObjectURL(lien)
+}
+
 export function formatXaf(amount: number): string {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',

@@ -1,6 +1,7 @@
 import { NavLink, Link, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { LogoDoto } from '../layout/LogoDoto'
 import { ContentLoader } from '../ui/Spinner'
 import api from '../../lib/api'
 
@@ -14,13 +15,16 @@ const MENU: { titre: string; elements: ElementNav[] }[] = [
     elements: [
       { vers: '/partenaire', libelle: 'Tableau de bord', exact: true },
       { vers: '/partenaire/reservations', libelle: 'Mes réservations' },
+      { vers: '/partenaire/finances', libelle: 'Finances' },
       { vers: '/partenaire/clients', libelle: 'Mes clients' },
+      { vers: '/partenaire/equipe', libelle: 'Équipe' },
     ],
   },
   {
     titre: 'Flotte',
     elements: [
       { vers: '/partenaire/voitures', libelle: 'Mes voitures' },
+      { vers: '/partenaire/entretiens', libelle: 'Entretiens' },
       { vers: '/partenaire/voitures/nouvelle', libelle: 'Ajouter un véhicule' },
       { vers: '/partenaire/referentiel', libelle: 'Référentiel' },
     ],
@@ -116,6 +120,12 @@ export function CoquePartenaire({
       ? 'Publier une nouvelle offre'
       : emplacement.pathname.includes('/voitures')
         ? 'Gérez votre flotte'
+        : emplacement.pathname.includes('/finances')
+          ? 'Chiffre d’affaires, encaissements et cautions'
+          : emplacement.pathname.includes('/entretiens')
+            ? 'Plans et interventions'
+            : emplacement.pathname.includes('/equipe')
+              ? 'Agents et gestionnaire financier'
         : emplacement.pathname.includes('/reservations')
           ? 'Suivi des locations'
           : emplacement.pathname.includes('/clients')
@@ -169,8 +179,9 @@ export function CoquePartenaire({
             <Link
               to="/partenaire"
               onClick={() => setMenuOuvert(false)}
-              className="mt-1 block font-display text-2xl font-bold tracking-tight"
+              className="mt-1 inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight"
             >
+              <LogoDoto className="h-12 w-12" />
               DOTO
             </Link>
             <p className="mt-1 truncate text-xs text-white/50">
@@ -329,7 +340,7 @@ export function DispositionPartenaire() {
     return <Navigate to="/admin" replace />
   }
 
-  if (user.role !== 'partner' && user.role !== 'partner_agent') {
+  if (user.role !== 'partner' && user.role !== 'partner_agent' && user.role !== 'finance_manager') {
     return <Navigate to="/" replace />
   }
 

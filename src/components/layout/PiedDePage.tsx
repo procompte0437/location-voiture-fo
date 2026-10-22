@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { LogoDoto } from './LogoDoto'
 
 const LIENS_PIED = [
   { vers: '/mes-reservations', libelle: 'Mes réservations' },
@@ -24,7 +25,10 @@ export function PiedDePage() {
           ))}
         </nav>
 
-        <p className="mt-8 text-3xl font-extrabold tracking-tight">DOTO</p>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <LogoDoto className="h-20 w-20 md:h-24 md:w-24" />
+          <p className="text-3xl font-extrabold tracking-tight">DOTO</p>
+        </div>
         <p className="mt-3 text-xs text-white/80">
           © Copyright {new Date().getFullYear()} DOTO — Location entre partenaires vérifiés
         </p>

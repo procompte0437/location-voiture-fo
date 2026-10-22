@@ -4,7 +4,7 @@ import { CatalogProvider } from './context/CatalogContext'
 import { HomePage } from './pages/HomePage'
 import { SearchPage } from './pages/SearchPage'
 import { VehicleDetailPage } from './pages/VehicleDetailPage'
-import { LoginPage, RegisterPage } from './pages/auth/AuthPages'
+import { LoginPage, PageMotDePasseOublie, PageReinitialiserMotDePasse, RegisterPage } from './pages/auth/AuthPages'
 import {
   ConfirmationPage,
   MyBookingsPage,
@@ -23,6 +23,11 @@ import {
   PageNouvelleVoiture,
   PageReferentielPartenaire,
 } from './pages/partenaire/PagesPartenaire'
+import {
+  PageEntretiensPartenaire,
+  PageEquipePartenaire,
+  PageFinancesPartenaire,
+} from './pages/partenaire/PagesCycleLoueur'
 import {
   AdminAuditPage,
   AdminDashboardPage,
@@ -62,6 +67,8 @@ export default function App() {
           <Route path="/vehicules" element={<SearchPage />} />
           <Route path="/vehicules/:id" element={<VehicleDetailPage />} />
           <Route path="/connexion" element={<LoginPage />} />
+          <Route path="/mot-de-passe-oublie" element={<PageMotDePasseOublie />} />
+          <Route path="/reinitialiser-mot-de-passe" element={<PageReinitialiserMotDePasse />} />
           <Route path="/inscription" element={<RegisterPage />} />
           <Route path="/mes-reservations" element={<MyBookingsPage />} />
           <Route path="/mes-reservations/nouvelle" element={<PageNouvelleReservation />} />
@@ -79,6 +86,9 @@ export default function App() {
             <Route path="voitures/nouvelle" element={<PageNouvelleVoiture />} />
             <Route path="referentiel" element={<PageReferentielPartenaire />} />
             <Route path="reservations" element={<PageMesReservations />} />
+            <Route path="finances" element={<PageFinancesPartenaire />} />
+            <Route path="entretiens" element={<PageEntretiensPartenaire />} />
+            <Route path="equipe" element={<PageEquipePartenaire />} />
             <Route path="clients" element={<PageMesClients />} />
             <Route path="aide" element={<PageAidePartenaire />} />
           </Route>

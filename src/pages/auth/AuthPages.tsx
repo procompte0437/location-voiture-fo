@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../../components/layout/Header'
 import { PiedDePage } from '../../components/layout/PiedDePage'
 import { useAuth } from '../../context/AuthContext'
-import { messageErreurApi } from '../../lib/api'
+import api, { messageErreurApi } from '../../lib/api'
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -16,6 +16,8 @@ export function LoginPage() {
   const [password, setPassword] = useState(emailParam ? '' : 'password')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [code, setCode] = useState('')
+  const [defi, setDefi] = useState<{ etape: string; jeton: string; secret?: string; uri?: string } | null>(null)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -23,10 +25,15 @@ export function LoginPage() {
     setError('')
     try {
       const user = await login(email, password)
+      const defiRecu = user as typeof user & { etape?: string; jeton?: string; secret?: string; uri?: string }
+      if (defiRecu.etape && defiRecu.jeton) {
+        setDefi({ etape: defiRecu.etape, jeton: defiRecu.jeton, secret: defiRecu.secret, uri: defiRecu.uri })
+        return
+      }
       // Admin / partenaire : toujours leur console (ignore un redirect client type /mes-reservations).
       if (user.role === 'super_admin' || user.role === 'admin') {
         navigate('/admin', { replace: true })
-      } else if (user.role === 'partner' || user.role === 'partner_agent') {
+      } else if (user.role === 'partner' || user.role === 'partner_agent' || user.role === 'finance_manager') {
         navigate('/partenaire', { replace: true })
       } else if (redirect && redirect.startsWith('/')) {
         navigate(redirect, { replace: true })
@@ -65,6 +72,45 @@ export function LoginPage() {
             : password
           </p>
         )}
+        {defi ? (
+          <form
+            className="mt-6 space-y-4 text-left"
+            onSubmit={async (e) => {
+              e.preventDefault()
+              setLoading(true)
+              setError('')
+              try {
+                const { data } = await api.post('/auth/double-authentification', { jeton: defi.jeton, code })
+                localStorage.setItem('locagabon_token', data.token)
+                window.location.href = data.user?.role === 'admin' || data.user?.role === 'super_admin' ? '/admin' : '/partenaire'
+              } catch {
+                setError('Code incorrect ou délai dépassé.')
+              } finally {
+                setLoading(false)
+              }
+            }}
+          >
+            <p className="text-sm text-ink-600">
+              {defi.etape === 'activer'
+                ? 'L’administration exige une double authentification. Ajoutez cette clé dans une application d’authentification, puis saisissez le code à 6 chiffres.'
+                : 'Saisissez le code à 6 chiffres de votre application d’authentification.'}
+            </p>
+            {defi.secret && <p className="break-all rounded-lg bg-sand-50 px-3 py-2 font-mono text-sm">{defi.secret}</p>}
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className="w-full rounded-xl border border-sand-200 px-4 py-3"
+              placeholder="Code à 6 chiffres"
+              required
+            />
+            {error && <p className="text-sm text-red-700">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white">
+              {loading ? 'Vérification…' : 'Valider le code'}
+            </button>
+          </form>
+        ) : (
         <form onSubmit={onSubmit} className="mt-6 space-y-4 text-left">
           <input
             type="email"
@@ -97,7 +143,11 @@ export function LoginPage() {
           >
             Retour à l’accueil
           </Link>
+          <Link to="/mot-de-passe-oublie" className="block text-center text-sm text-forest-700 underline">
+            Mot de passe oublié
+          </Link>
         </form>
+        )}
         <p className="mt-4 text-sm text-ink-500">
           Pas encore de compte ?{' '}
           <Link to="/inscription" className="text-forest-700 underline">
@@ -188,6 +238,71 @@ export function RegisterPage() {
           </Link>
         </p>
       </div>
+    </div>
+  )
+}
+
+export function PageMotDePasseOublie() {
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [lien, setLien] = useState('')
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    const { data } = await api.post('/auth/mot-de-passe-oublie', { email })
+    setMessage(data.message)
+    setLien(data.lien || '')
+  }
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-16">
+      <h1 className="font-display text-3xl font-bold">Mot de passe oublié</h1>
+      <form onSubmit={onSubmit} className="mt-6 space-y-3">
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded-xl border px-4 py-3" />
+        <button className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white">Envoyer le lien</button>
+      </form>
+      {message && <p className="mt-4 text-sm">{message}</p>}
+      {lien && (
+        <p className="mt-2 text-sm">
+          Environnement local : <Link className="text-forest-700 underline" to={lien.replace(/^https?:\/\/[^/]+/, '')}>ouvrir le lien</Link>
+        </p>
+      )}
+    </div>
+  )
+}
+
+export function PageReinitialiserMotDePasse() {
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [erreur, setErreur] = useState('')
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    setErreur('')
+    try {
+      await api.post('/auth/reinitialiser-mot-de-passe', {
+        email: params.get('email'),
+        token: params.get('token'),
+        password,
+        password_confirmation: confirmation,
+      })
+      navigate('/connexion')
+    } catch (err) {
+      setErreur(messageErreurApi(err))
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-16">
+      <h1 className="font-display text-3xl font-bold">Nouveau mot de passe</h1>
+      <form onSubmit={onSubmit} className="mt-6 space-y-3">
+        <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Nouveau mot de passe" className="w-full rounded-xl border px-4 py-3" />
+        <input type="password" required value={confirmation} onChange={(e) => setConfirmation(e.target.value)} placeholder="Confirmation" className="w-full rounded-xl border px-4 py-3" />
+        {erreur && <p className="text-sm text-red-700">{erreur}</p>}
+        <button className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white">Enregistrer</button>
+      </form>
     </div>
   )
 }

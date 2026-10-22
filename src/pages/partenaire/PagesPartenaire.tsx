@@ -14,7 +14,9 @@ import { useCatalog } from '../../context/CatalogContext'
 import type { ContexteSortiePartenaire } from '../../components/partenaire/CoquePartenaire'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
-import api, { formatXaf, messageErreurApi } from '../../lib/api'
+import { FenetreModale } from '../../components/ui/FenetreModale'
+import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
+import api, { formatXaf, messageErreurApi, telechargerFichier } from '../../lib/api'
 
 /** Ligne véhicule renvoyée par l’API partenaire. */
 type LigneVehicule = {
@@ -36,6 +38,10 @@ type LigneReservation = {
   pickup_at?: string
   return_at?: string
   total_amount?: number
+  deposit_amount?: number
+  days_count?: number
+  solde_restant?: number
+  regle_duree?: string
   vehicle?: { brand?: string; model?: string }
   customer?: { name?: string; email?: string; phone?: string }
 }
@@ -43,17 +49,22 @@ type LigneReservation = {
 /** Traduit un code statut technique en libellé français. */
 function libelleStatut(code: string) {
   const correspondances: Record<string, string> = {
-    pending: 'En attente',
+    pending_partner: 'Demande en attente',
+    pending_payment: 'Demande en attente',
+    locked: 'Demande en attente',
+    submitted: 'Soumis',
+    pending: 'Soumis',
+    approved: 'Validé',
+    confirmed: 'Confirmée',
+    refused: 'Refusée',
+    ongoing: 'En cours',
+    completed: 'Clôturée',
+    cancelled: 'Annulée',
     pending_validation: 'En validation',
-    approved: 'Approuvé',
     published: 'Publié',
     rejected: 'Refusé',
     suspended: 'Suspendu',
     draft: 'Brouillon',
-    confirmed: 'Confirmée',
-    ongoing: 'En cours',
-    completed: 'Terminée',
-    cancelled: 'Annulée',
     archived: 'Archivée',
     new: 'Nouveau',
     info_requested: 'Infos demandées',
@@ -450,7 +461,9 @@ export function PageAccueilPartenaire() {
       .finally(() => setChargementListes(false))
   }, [])
 
-  const enAttente = String(tableauDeBord?.status) === 'pending'
+  const enAttente = ['pending', 'submitted', 'draft', 'info_requested'].includes(
+    String(tableauDeBord?.status),
+  )
 
   return (
     <div>
@@ -495,17 +508,23 @@ export function PageAccueilPartenaire() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <TuileStat libelle="Statut" valeur={libelleStatut(String(tableauDeBord.status))} />
           <TuileStat
-            libelle="Réservations confirmées"
-            valeur={String(tableauDeBord.confirmed_bookings ?? 0)}
-            hint={`${tableauDeBord.today_bookings ?? 0} aujourd’hui`}
+            libelle="CA facturé"
+            valeur={formatXaf(Number(tableauDeBord.chiffre_affaires_facture ?? tableauDeBord.gross_revenue ?? 0))}
+            hint="Hors cautions"
           />
-          <TuileStat libelle="CA brut" valeur={formatXaf(Number(tableauDeBord.gross_revenue || 0))} />
           <TuileStat
-            libelle="Flotte"
-            valeur={`${tableauDeBord.published_vehicles ?? 0} / ${tableauDeBord.vehicles_count ?? 0}`}
-            hint="Publiés / total"
+            libelle="Encaissements"
+            valeur={formatXaf(Number(tableauDeBord.encaissements_nets || 0))}
+          />
+          <TuileStat
+            libelle="Cautions détenues"
+            valeur={formatXaf(Number(tableauDeBord.cautions_detenues || 0))}
+          />
+          <TuileStat
+            libelle="Occupation"
+            valeur={`${tableauDeBord.taux_occupation ?? 0} %`}
+            hint={`${tableauDeBord.locations_actives ?? 0} location(s) en cours`}
           />
         </div>
       )}
@@ -693,6 +712,12 @@ export function PageNouvelleVoiture() {
     transmission: 'automatic',
     fuel: 'petrol',
     price_per_day: 40000,
+    deposit_amount: 100000,
+    included_km: 200,
+    cout_km_supplementaire: 150,
+    frais_livraison: 0,
+    delai_preparation_minutes: 120,
+    kilometrage: 0,
   })
   const [fichierCouverture, setFichierCouverture] = useState<File | null>(null)
   const [apercuCouverture, setApercuCouverture] = useState<string | null>(null)
@@ -854,6 +879,54 @@ export function PageNouvelleVoiture() {
             value={formulaire.seats}
             onChange={(e) => setFormulaire((actuel) => ({ ...actuel, seats: Number(e.target.value) }))}
             required
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Caution (XAF, hors prix)"
+            value={formulaire.deposit_amount}
+            onChange={(e) => setFormulaire((actuel) => ({ ...actuel, deposit_amount: Number(e.target.value) }))}
+          />
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Km inclus"
+            value={formulaire.included_km}
+            onChange={(e) => setFormulaire((actuel) => ({ ...actuel, included_km: Number(e.target.value) }))}
+          />
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Coût du km supplémentaire"
+            value={formulaire.cout_km_supplementaire}
+            onChange={(e) =>
+              setFormulaire((actuel) => ({ ...actuel, cout_km_supplementaire: Number(e.target.value) }))
+            }
+          />
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Frais de livraison"
+            value={formulaire.frais_livraison}
+            onChange={(e) => setFormulaire((actuel) => ({ ...actuel, frais_livraison: Number(e.target.value) }))}
+          />
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Préparation (minutes)"
+            value={formulaire.delai_preparation_minutes}
+            onChange={(e) =>
+              setFormulaire((actuel) => ({ ...actuel, delai_preparation_minutes: Number(e.target.value) }))
+            }
+          />
+          <input
+            type="number"
+            className="rounded-xl border border-sand-200 px-4 py-3"
+            placeholder="Kilométrage actuel"
+            value={formulaire.kilometrage}
+            onChange={(e) => setFormulaire((actuel) => ({ ...actuel, kilometrage: Number(e.target.value) }))}
           />
         </div>
         <select
@@ -1142,11 +1215,22 @@ export function PageReferentielPartenaire() {
   )
 }
 
-/** Liste des réservations du partenaire. */
+/** Liste des réservations : le loueur accepte, enregistre la sortie puis le retour. */
 export function PageMesReservations() {
   const [reservations, setReservations] = useState<LigneReservation[]>([])
   const [chargement, setChargement] = useState(true)
   const [filtreStatut, setFiltreStatut] = useState('')
+  const [dossierId, setDossierId] = useState<number | null>(null)
+  const [dossier, setDossier] = useState<LigneReservation | null>(null)
+  const [message, setMessage] = useState('')
+  const [motif, setMotif] = useState('')
+  const [sortie, setSortie] = useState({
+    conducteur: '',
+    kilometrage: '',
+    niveau_carburant: 'plein',
+  })
+  const [retour, setRetour] = useState({ kilometrage: '', niveau_carburant: 'plein' })
+  const [reglement, setReglement] = useState({ montant: '', mode: 'especes', reference: '' })
 
   async function charger() {
     setChargement(true)
@@ -1160,6 +1244,25 @@ export function PageMesReservations() {
     }
   }
 
+  async function ouvrir(id: number) {
+    setDossierId(id)
+    setMessage('')
+    const { data } = await api.get(`/partenaires/moi/reservations/${id}`)
+    setDossier(data.data)
+  }
+
+  async function agir(url: string, corps?: object) {
+    if (!dossierId) return
+    setMessage('')
+    try {
+      await api.post(url, corps)
+      await charger()
+      await ouvrir(dossierId)
+    } catch (err) {
+      setMessage(messageErreurApi(err))
+    }
+  }
+
   useEffect(() => {
     void charger()
   }, [])
@@ -1167,13 +1270,14 @@ export function PageMesReservations() {
   const affichees = filtreStatut
     ? reservations.filter((r) => r.status === filtreStatut)
     : reservations
+  const maintenant = new Date().toISOString().slice(0, 16)
 
   return (
     <div>
       <HeroPage
         surtitre="Locations"
         titre="Mes réservations"
-        sousTitre="Suivez chaque demande, du paiement à la restitution."
+        sousTitre="Une demande n’occupe pas le véhicule. Vous confirmez, puis vous notez le départ et le retour."
       />
 
       <TableauDonnees
@@ -1205,16 +1309,22 @@ export function PageMesReservations() {
             libelle: 'Période',
             rendu: (r) => (
               <>
-                {r.pickup_at ? new Date(r.pickup_at).toLocaleDateString('fr-FR') : '—'}
+                {r.pickup_at ? new Date(r.pickup_at).toLocaleString('fr-FR') : '—'}
                 {' → '}
-                {r.return_at ? new Date(r.return_at).toLocaleDateString('fr-FR') : '—'}
+                {r.return_at ? new Date(r.return_at).toLocaleString('fr-FR') : '—'}
+                {r.days_count ? ` · ${r.days_count} j` : ''}
               </>
             ),
           },
           {
             cle: 'montant',
-            libelle: 'Montant',
-            rendu: (r) => <span className="font-semibold">{formatXaf(Number(r.total_amount || 0))}</span>,
+            libelle: 'Location',
+            rendu: (r) => (
+              <div>
+                <p className="font-semibold">{formatXaf(Number(r.total_amount || 0))}</p>
+                <p className="text-xs text-ink-500">Caution {formatXaf(Number(r.deposit_amount || 0))}</p>
+              </div>
+            ),
           },
           {
             cle: 'status',
@@ -1234,17 +1344,158 @@ export function PageMesReservations() {
             onChange={(e) => setFiltreStatut(e.target.value)}
           >
             <option value="">Tous les statuts</option>
-            {['pending', 'confirmed', 'ongoing', 'completed', 'cancelled'].map((s) => (
+            {['pending_partner', 'confirmed', 'refused', 'ongoing', 'completed', 'cancelled'].map((s) => (
               <option key={s} value={s}>
                 {libelleStatut(s)}
               </option>
             ))}
           </select>
         }
+        filtreActif={filtreStatut !== ''}
         surActualiser={charger}
         chargement={chargement}
         messageVide="Aucune réservation."
+        actions={(r) => (
+          <BoutonActionCrud variante="voir" libelle="Ouvrir le dossier" onClick={() => void ouvrir(r.id)} />
+        )}
       />
+
+      <FenetreModale ouvert={dossierId !== null} titre="Dossier de location" onFermer={() => setDossierId(null)}>
+        {dossier && (
+          <div className="space-y-4 text-sm">
+            <p>
+              <PastilleStatut statut={dossier.status} /> · {dossier.days_count || '—'} jour(s) ·{' '}
+              {formatXaf(Number(dossier.total_amount || 0))}
+            </p>
+            <p className="text-ink-600">
+              Caution prévue {formatXaf(Number(dossier.deposit_amount || 0))} — elle ne s’ajoute pas au prix.
+              Solde {formatXaf(Number(dossier.solde_restant || 0))}.
+            </p>
+            {dossier.regle_duree && <p className="text-ink-500">{dossier.regle_duree}</p>}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/contrat`, `contrat-${dossier.reference}.pdf`)}>
+                Contrat PDF
+              </button>
+              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/etat-des-lieux`, `etat-des-lieux-${dossier.reference}.pdf`)}>
+                État des lieux PDF
+              </button>
+            </div>
+            {message && <p className="text-red-700">{message}</p>}
+
+            {['pending_partner', 'pending_payment', 'locked'].includes(dossier.status) && (
+              <div className="flex flex-wrap gap-2">
+                <BoutonPrincipal onClick={() => void agir(`/partenaires/moi/reservations/${dossier.id}/accepter`)}>
+                  Accepter
+                </BoutonPrincipal>
+                <input
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Motif du refus"
+                  value={motif}
+                  onChange={(e) => setMotif(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="rounded-xl border border-black/10 px-4 py-2"
+                  onClick={() => void agir(`/partenaires/moi/reservations/${dossier.id}/refuser`, { motif })}
+                >
+                  Refuser
+                </button>
+              </div>
+            )}
+
+            {dossier.status === 'confirmed' && (
+              <form
+                className="grid gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void agir(`/partenaires/moi/reservations/${dossier.id}/sortie`, {
+                    ...sortie,
+                    kilometrage: Number(sortie.kilometrage),
+                    effectue_le: maintenant,
+                  })
+                }}
+              >
+                <p className="font-semibold">Sortie du véhicule</p>
+                <input
+                  required
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Conducteur"
+                  value={sortie.conducteur}
+                  onChange={(e) => setSortie((a) => ({ ...a, conducteur: e.target.value }))}
+                />
+                <input
+                  required
+                  type="number"
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Kilométrage"
+                  value={sortie.kilometrage}
+                  onChange={(e) => setSortie((a) => ({ ...a, kilometrage: e.target.value }))}
+                />
+                <BoutonPrincipal type="submit">Enregistrer le départ</BoutonPrincipal>
+              </form>
+            )}
+
+            {dossier.status === 'ongoing' && (
+              <form
+                className="grid gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void agir(`/partenaires/moi/reservations/${dossier.id}/retour`, {
+                    ...retour,
+                    kilometrage: Number(retour.kilometrage),
+                    effectue_le: maintenant,
+                  })
+                }}
+              >
+                <p className="font-semibold">Retour du véhicule</p>
+                <input
+                  required
+                  type="number"
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Kilométrage au retour"
+                  value={retour.kilometrage}
+                  onChange={(e) => setRetour((a) => ({ ...a, kilometrage: e.target.value }))}
+                />
+                <BoutonPrincipal type="submit">Enregistrer le retour</BoutonPrincipal>
+              </form>
+            )}
+
+            {['confirmed', 'ongoing', 'completed'].includes(dossier.status) && (
+              <form
+                className="grid gap-2 border-t border-black/5 pt-3"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void agir(`/partenaires/moi/reservations/${dossier.id}/reglements`, {
+                    montant: Number(reglement.montant),
+                    mode: reglement.mode,
+                    reference: reglement.reference || undefined,
+                  })
+                }}
+              >
+                <p className="font-semibold">Règlement (hors caution)</p>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Montant XAF"
+                  value={reglement.montant}
+                  onChange={(e) => setReglement((a) => ({ ...a, montant: e.target.value }))}
+                />
+                <input
+                  className="rounded-xl border border-black/10 px-3 py-2"
+                  placeholder="Référence"
+                  value={reglement.reference}
+                  onChange={(e) => setReglement((a) => ({ ...a, reference: e.target.value }))}
+                />
+                <button type="submit" className="rounded-xl border border-black/10 px-4 py-2">
+                  Encaisser
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+      </FenetreModale>
     </div>
   )
 }

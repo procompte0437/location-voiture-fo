@@ -6,17 +6,18 @@ import { SearchForm } from '../../components/search/SearchForm'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
-import api, { formatXaf } from '../../lib/api'
+import api, { formatXaf, telechargerFichier } from '../../lib/api'
 import type { Booking } from '../../types'
 
 function libelleStatut(statut: string) {
   const map: Record<string, string> = {
     pending_payment: 'Paiement en attente',
     locked: 'En cours de validation',
-    pending_partner: 'En cours — commercial contacté',
+    pending_partner: 'Demande en attente',
     confirmed: 'Confirmée',
+    refused: 'Refusée',
     ongoing: 'En cours de location',
-    completed: 'Terminée',
+    completed: 'Clôturée',
     cancelled: 'Annulée',
     expired: 'Expirée',
     refunded: 'Remboursée',
@@ -99,11 +100,11 @@ export function ConfirmationPage() {
         <div className="rounded-2xl border border-white/40 bg-white/95 p-8 text-center shadow-xl backdrop-blur-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">Confirmation</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-forest-950">
-            Réservation en cours
+            Demande transmise
           </h1>
           <p className="mt-4 text-base leading-relaxed text-ink-700">
-            Votre réservation est en cours de traitement. Un commercial vous répondra dans
-            quelques minutes pour confirmer les détails.
+            Le loueur doit accepter ou refuser cette demande. Le règlement est suivi par le loueur :
+            aucun paiement en ligne n’est encaissé à cette étape. La caution reste distincte du prix de location.
           </p>
           <p className="mt-5 text-ink-700">
             Référence <strong className="text-forest-800">{booking.reference}</strong>
@@ -112,6 +113,13 @@ export function ConfirmationPage() {
           <p className="mt-3 text-lg font-semibold text-forest-900">
             {formatXaf(booking.total_amount)}
           </p>
+          <button
+            type="button"
+            className="mt-4 rounded-full border border-forest-800 px-4 py-2 text-sm font-medium text-forest-800"
+            onClick={() => void telechargerFichier(`/bookings/${id}/contrat`, `contrat-${booking.reference}.pdf`)}
+          >
+            Télécharger le récapitulatif
+          </button>
 
           {showCredentials && temporaryPassword && (
             <div className="mt-6 rounded-xl border border-forest-600/15 bg-forest-50/60 px-4 py-3 text-left text-sm text-ink-700">

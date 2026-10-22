@@ -37,11 +37,15 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    void api
-      .get('/catalog/labels')
-      .then(({ data }) => setLabels(data.data))
-      .catch(() => undefined)
-      .finally(() => setLoading(false))
+    // Différé d’un instant pour ne pas passer devant le décompte de disponibilité.
+    const delai = window.setTimeout(() => {
+      void api
+        .get('/catalog/labels')
+        .then(({ data }) => setLabels(data.data))
+        .catch(() => undefined)
+        .finally(() => setLoading(false))
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [])
 
   const value = useMemo<CatalogContextValue>(

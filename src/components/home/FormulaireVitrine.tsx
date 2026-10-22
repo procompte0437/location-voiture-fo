@@ -5,6 +5,72 @@ import { EcranTransitionRecherche } from './EcranTransitionRecherche'
 import api from '../../lib/api'
 import type { Location } from '../../types'
 
+type ResumeDisponibilite = {
+  disponibles: number
+  categories: { slug: string; libelle: string; disponibles: number }[]
+}
+
+/** Évite un second appel au tout premier affichage (React rappelle le rendu). */
+let cleDisponibiliteLancee = ''
+
+function lancerDisponibilite(
+  cle: string,
+  params: { pickup_at: string; return_at: string; location_id?: string | number; driver_age?: number },
+  signal: AbortSignal,
+) {
+  if (cleDisponibiliteLancee === cle) return null
+  cleDisponibiliteLancee = cle
+  return api.get('/vehicules/disponibilite', { signal, params })
+}
+
+/** Total et détail par catégorie, affichés dès que la plage horaire est connue. */
+function ResumePlage({
+  chargement,
+  resume,
+}: {
+  chargement: boolean
+  resume: ResumeDisponibilite | null
+}) {
+  if (chargement && !resume) {
+    return (
+      <p className="mt-3 flex items-center gap-2 text-sm text-white/80">
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        Calcul des véhicules disponibles…
+      </p>
+    )
+  }
+
+  if (!resume) return null
+
+  const aucun = resume.disponibles === 0
+
+  return (
+    <div className="mt-3 rounded-md bg-black/25 px-3 py-2.5 text-sm">
+      <p className={aucun ? 'font-semibold text-red-200' : 'font-semibold text-white'}>
+        {aucun
+          ? 'Aucun véhicule disponible sur cette plage.'
+          : `${resume.disponibles} véhicule${resume.disponibles > 1 ? 's' : ''} disponible${resume.disponibles > 1 ? 's' : ''} sur cette plage.`}
+      </p>
+      {resume.categories.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {resume.categories.map((categorie) => (
+            <li
+              key={categorie.slug}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                categorie.disponibles === 0
+                  ? 'bg-white/10 text-white/50'
+                  : 'bg-white text-neutral-900'
+              }`}
+            >
+              {categorie.libelle} · {categorie.disponibles}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function pad(n: number) {
   return String(n).padStart(2, '0')
 }
@@ -62,10 +128,15 @@ export function FormulaireVitrine() {
   const [calendrierOuvert, setCalendrierOuvert] = useState(false)
   const [enTransition, setEnTransition] = useState(false)
   const [erreur, setErreur] = useState('')
+  const [resumeDispo, setResumeDispo] = useState<ResumeDisponibilite | null>(null)
+  const [chargementDispo, setChargementDispo] = useState(true)
   const blocDates = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    void api.get('/locations/popular').then(({ data }) => setLieux(data.data || []))
+    const delai = window.setTimeout(() => {
+      void api.get('/locations/popular').then(({ data }) => setLieux(data.data || []))
+    }, 0)
+    return () => window.clearTimeout(delai)
   }, [])
 
   useEffect(() => {
@@ -83,6 +154,63 @@ export function FormulaireVitrine() {
     document.addEventListener('mousedown', horsClic)
     return () => document.removeEventListener('mousedown', horsClic)
   }, [listeOuverte, calendrierOuvert])
+
+  const ageConducteur = ageStandard ? 25 : Number(ageSaisi)
+  const parametresDispo = {
+    pickup_at: combiner(dateDepart, heureDepart),
+    return_at: combiner(dateRetour, heureRetour),
+    location_id: locationId || undefined,
+    driver_age: Number.isFinite(ageConducteur) ? ageConducteur : undefined,
+  }
+  const cleDispo = `${parametresDispo.pickup_at}|${parametresDispo.return_at}|${parametresDispo.location_id ?? ''}|${parametresDispo.driver_age ?? ''}`
+  const plageValide = (() => {
+    const depart = new Date(parametresDispo.pickup_at)
+    const retour = new Date(parametresDispo.return_at)
+    return Boolean(dateDepart && dateRetour) && !Number.isNaN(depart.getTime()) && retour > depart
+  })()
+
+  // Avant les useEffect du reste de la page : le serveur PHP local ne traite qu’une requête à la fois.
+  if (plageValide && cleDisponibiliteLancee === '') {
+    const controleInitial = new AbortController()
+    const promesse = lancerDisponibilite(cleDispo, parametresDispo, controleInitial.signal)
+    void promesse
+      ?.then(({ data }) => setResumeDispo(data.data))
+      .catch((err: { code?: string }) => {
+        if (err?.code === 'ERR_CANCELED') return
+        setResumeDispo(null)
+      })
+      .finally(() => setChargementDispo(false))
+  }
+
+  // Dès que la plage change, on recalcule sans relancer le premier appel déjà parti.
+  useEffect(() => {
+    if (!plageValide) {
+      setResumeDispo(null)
+      setChargementDispo(false)
+      return
+    }
+    if (cleDisponibiliteLancee === cleDispo) return
+
+    const controle = new AbortController()
+    const delai = window.setTimeout(() => {
+      setChargementDispo(true)
+      const promesse = lancerDisponibilite(cleDispo, parametresDispo, controle.signal)
+      void promesse
+        ?.then(({ data }) => setResumeDispo(data.data))
+        .catch((err: { code?: string }) => {
+          if (controle.signal.aborted || err?.code === 'ERR_CANCELED') return
+          setResumeDispo(null)
+        })
+        .finally(() => {
+          if (!controle.signal.aborted) setChargementDispo(false)
+        })
+    }, 120)
+
+    return () => {
+      window.clearTimeout(delai)
+      controle.abort()
+    }
+  }, [cleDispo, plageValide, parametresDispo.pickup_at, parametresDispo.return_at, parametresDispo.location_id, parametresDispo.driver_age])
 
   const dureeJours = useMemo(() => {
     const depart = new Date(combiner(dateDepart, heureDepart))
@@ -110,6 +238,10 @@ export function FormulaireVitrine() {
     const retour = new Date(combiner(dateRetour, heureRetour))
     if (!dateDepart || !dateRetour || Number.isNaN(depart.getTime()) || retour <= depart) {
       setErreur('La date de retour doit être après le départ.')
+      return
+    }
+    if (resumeDispo && resumeDispo.disponibles === 0) {
+      setErreur('Aucun véhicule n’est libre sur cette plage. Choisissez d’autres dates ou un autre lieu.')
       return
     }
     const age = ageStandard ? 25 : Number(ageSaisi)
@@ -247,9 +379,10 @@ export function FormulaireVitrine() {
 
         <button
           type="submit"
-          className="h-12 rounded-md bg-forest-600 px-6 text-sm font-bold text-white transition hover:bg-forest-700 lg:min-w-[8.5rem]"
+          disabled={resumeDispo?.disponibles === 0 || (chargementDispo && !resumeDispo)}
+          className="h-12 rounded-md bg-forest-600 px-6 text-sm font-bold text-white transition hover:bg-forest-700 disabled:cursor-not-allowed disabled:bg-neutral-500 lg:min-w-[8.5rem]"
         >
-          Recherchez
+          {resumeDispo?.disponibles === 0 ? 'Aucun véhicule' : 'Recherchez'}
         </button>
       </div>
 
@@ -288,11 +421,13 @@ export function FormulaireVitrine() {
           </label>
         )}
         {dureeJours > 0 && (
-          <span className="ml-auto rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-900 shadow-sm">
+          <span className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-900 shadow-sm">
             Durée de la location : {dureeJours} jour{dureeJours > 1 ? 's' : ''}
           </span>
         )}
       </div>
+
+      <ResumePlage chargement={chargementDispo} resume={resumeDispo} />
 
       {!memeLieu && (
         <select

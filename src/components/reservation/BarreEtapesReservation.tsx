@@ -3,7 +3,7 @@ export const ETAPES_RESERVATION = [
   { id: 'conducteur', label: 'Conducteur' },
   { id: 'reservation', label: 'Réservation' },
   { id: 'protection', label: 'Protection' },
-  { id: 'paiement', label: 'Paiement' },
+  { id: 'paiement', label: 'Demande' },
 ] as const
 
 export type EtapeReservation = (typeof ETAPES_RESERVATION)[number]['id']

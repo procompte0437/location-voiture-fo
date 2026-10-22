@@ -1,6 +1,7 @@
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { LogoDoto } from '../layout/LogoDoto'
 
 type NavItem = {
   to: string
@@ -147,7 +148,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
         >
           Menu
         </button>
-        <Link to="/admin" className="text-lg font-semibold text-[#0b3d2e]">
+        <Link to="/admin" className="inline-flex items-center gap-2 text-lg font-semibold text-[#0b3d2e]">
+          <LogoDoto className="h-11 w-11" />
           DOTO
         </Link>
         <span className="text-xs text-ink-500">Admin</span>
@@ -169,9 +171,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       >
         <div className="flex h-full flex-col px-3 py-5">
           <div className="mb-7 flex items-center gap-3 px-2">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-bold">
-              DO
-            </div>
+            <LogoDoto className="h-12 w-12" />
             <div className="min-w-0">
               <Link to="/admin" className="block truncate text-base font-semibold" onClick={() => setOpen(false)}>
                 DOTO

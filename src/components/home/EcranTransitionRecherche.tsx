@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LogoDoto } from '../layout/LogoDoto'
 
 const POINTS = [
   'Prix annoncé en FCFA avant le départ',
@@ -22,7 +23,10 @@ export function EcranTransitionRecherche() {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col bg-white">
       <div className="bg-forest-700 py-4 text-center">
-        <p className="font-display text-2xl font-bold text-white">DOTO</p>
+        <div className="inline-flex items-center gap-2">
+          <LogoDoto className="h-14 w-14" />
+          <p className="font-display text-2xl font-bold text-white">DOTO</p>
+        </div>
       </div>
       <div className="mx-auto flex w-full max-w-lg flex-1 flex-col items-center px-6 pt-16 text-center">
         <p className="text-lg font-semibold text-neutral-950">Recherche</p>

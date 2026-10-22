@@ -79,7 +79,6 @@ export function VehicleDetailPage() {
   const [protegeFranchise, setProtegeFranchise] = useState(false)
   const [rappelAssurance, setRappelAssurance] = useState(false)
   const [horairesOuverts, setHorairesOuverts] = useState<'depart' | 'retour' | null>(null)
-  const [secondesRestantes, setSecondesRestantes] = useState(15 * 60)
   const [method, setMethod] = useState('airtel_money')
   const [moyensPaiement, setMoyensPaiement] = useState<{ slug: string; label: string }[]>([])
   const [agesConducteur, setAgesConducteur] = useState<{ slug: string; label: string }[]>([])
@@ -218,13 +217,6 @@ export function VehicleDetailPage() {
     }))
   }, [user])
 
-  useEffect(() => {
-    const idMinuteur = window.setInterval(() => {
-      setSecondesRestantes((s) => (s > 0 ? s - 1 : 0))
-    }, 1000)
-    return () => window.clearInterval(idMinuteur)
-  }, [])
-
   async function payerMaintenant() {
     if (!vehicle) return
     setRappelAssurance(false)
@@ -251,19 +243,16 @@ export function VehicleDetailPage() {
         | undefined
 
       const bookingId = bookingRes.data.id
-      const { data: payRes } = await api.post(`/bookings/${bookingId}/pay`, { method })
       const confirmationState = {
-        booking: payRes.data.booking,
-        payment: payRes.data.payment,
+        booking: bookingRes.data,
         accountCreated: !!meta?.account_created,
         showCredentials: !!meta?.show_credentials,
         temporaryPassword: meta?.temporary_password || null,
         loginEmail: meta?.login_email || guest.email,
       }
-      // Persiste les identifiants si l’utilisateur rafraîchit la page de confirmation.
       try {
         sessionStorage.setItem(
-          `locagabon_confirm_${payRes.data.booking.id}`,
+          `locagabon_confirm_${bookingId}`,
           JSON.stringify({
             showCredentials: confirmationState.showCredentials,
             temporaryPassword: confirmationState.temporaryPassword,
@@ -274,7 +263,7 @@ export function VehicleDetailPage() {
       } catch {
         // ignore
       }
-      navigate(`/confirmation/${payRes.data.booking.id}`, { state: confirmationState })
+      navigate(`/confirmation/${bookingId}`, { state: confirmationState })
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })
@@ -362,10 +351,7 @@ export function VehicleDetailPage() {
   const total = days ? days * vehicle.price_per_day : null
   const depart = formaterMoment(pickupAt)
   const retour = formaterMoment(returnAt)
-  const lieu =
-    lieuLabel || vehicle.agency?.name || vehicle.partner.city || 'Agence partenaire'
-  const minutes = String(Math.floor(secondesRestantes / 60)).padStart(2, '0')
-  const secondes = String(secondesRestantes % 60).padStart(2, '0')
+  const lieu = lieuLabel || vehicle.agency?.name || vehicle.partner.city || 'Agence partenaire'
   const champ = 'w-full rounded-md border border-sand-200 px-3 py-2.5 text-sm'
 
   function blocHoraires(cle: 'depart' | 'retour', indice: number) {
@@ -436,9 +422,17 @@ export function VehicleDetailPage() {
                 </p>
               </div>
               {total != null && (
-                <p className="mt-4 text-sm">
-                  Location <span className="float-right font-bold">{formatXaf(total)}</span>
-                </p>
+                <>
+                  <p className="mt-4 text-sm">
+                    Location <span className="float-right font-bold">{formatXaf(total)}</span>
+                  </p>
+                  <p className="mt-1 text-sm">
+                    Caution <span className="float-right">{formatXaf(vehicle.deposit_amount)}</span>
+                  </p>
+                  <p className="mt-2 text-xs text-ink-500">
+                    Journée = tranche de 24 h commencée. La caution n’est pas comprise dans le prix.
+                  </p>
+                </>
               )}
             </>
           )}
@@ -640,7 +634,7 @@ export function VehicleDetailPage() {
                 <p className="font-semibold">Sans protection</p>
                 <p className="mt-2 text-ink-600">Vous assumez la caution en cas de dommage.</p>
                 <p className="mt-3 font-bold">{total != null ? formatXaf(total) : ''}</p>
-                <p className="text-xs text-ink-500">Prix de la location, payé en ligne</p>
+                <p className="text-xs text-ink-500">Prix de la location, hors caution</p>
               </button>
               <button
                 type="button"
@@ -678,11 +672,9 @@ export function VehicleDetailPage() {
           {etape === 'paiement' && (
           <section className="rounded-xl border border-sand-200 bg-white p-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 className="font-semibold">Paiement</h2>
+              <h2 className="font-semibold">Demande de réservation</h2>
               <p className="text-sm text-ink-600">
-                {secondesRestantes > 0
-                  ? `${minutes}:${secondes} pour garder ce prix`
-                  : 'Le prix affiché peut encore changer'}
+                Le loueur accepte ou refuse. Le règlement sera suivi par lui, pas encaissé ici.
               </p>
             </div>
             <label className="mt-4 block text-sm">
@@ -700,8 +692,7 @@ export function VehicleDetailPage() {
               </select>
             </label>
             <p className="mt-2 text-sm text-ink-600">
-              Airtel Money et Moov Money sont débités sur le numéro indiqué. Aucun frais de carte n’est ajouté par
-              DOTO.
+              Indiquez comment vous réglerez le loueur. Ce choix ne déclenche aucun débit.
             </p>
             <details className="mt-4 text-sm">
               <summary className="cursor-pointer font-medium text-forest-800">Modifier les dates</summary>
@@ -724,7 +715,7 @@ export function VehicleDetailPage() {
                 disabled={paying || !pickupAt || disponible === false}
                 className="flex flex-1 items-center justify-between bg-forest-700 px-4 py-3 font-bold text-white disabled:opacity-50"
               >
-                <span>{paying ? 'Paiement…' : 'Payez en ligne maintenant'}</span>
+                <span>{paying ? 'Envoi…' : 'Transmettre la demande'}</span>
                 <span>{total != null ? formatXaf(total) : ''}</span>
               </button>
             </div>
