@@ -104,7 +104,8 @@ export function ConfirmationPage() {
     )
   }
 
-  const emailConnexion = loginEmail || (booking as Booking & { guest_email?: string }).guest_email || ''
+  const reservation = booking
+  const emailConnexion = loginEmail || (reservation as Booking & { guest_email?: string }).guest_email || ''
   const lienConnexion = user
     ? lienApresReservation(user.role)
     : `/connexion?redirect=${encodeURIComponent('/mes-reservations')}${
@@ -118,7 +119,7 @@ export function ConfirmationPage() {
     try {
       await telechargerFichier(
         `/bookings/${id}/contrat`,
-        `recapitulatif-${booking.reference}.pdf`,
+        `recapitulatif-${reservation.reference}.pdf`,
       )
     } catch {
       setErreurRecap('Impossible de télécharger le récapitulatif. Réessayez dans un instant.')

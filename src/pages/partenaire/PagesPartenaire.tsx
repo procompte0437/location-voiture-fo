@@ -34,6 +34,7 @@ type LigneVehicule = {
 /** Ligne réservation avec relations véhicule / client. */
 type LigneReservation = {
   id: number
+  reference?: string
   status: string
   pickup_at?: string
   return_at?: string
@@ -1477,10 +1478,10 @@ export function PageMesReservations() {
             </p>
             {dossier.regle_duree && <p className="text-ink-500">{dossier.regle_duree}</p>}
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/contrat`, `contrat-${dossier.reference}.pdf`)}>
+              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/contrat`, `contrat-${dossier.reference || dossier.id}.pdf`)}>
                 Contrat PDF
               </button>
-              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/etat-des-lieux`, `etat-des-lieux-${dossier.reference}.pdf`)}>
+              <button type="button" className="rounded-full border border-black/10 px-3 py-1.5" onClick={() => void telechargerFichier(`/partenaires/moi/reservations/${dossier.id}/etat-des-lieux`, `etat-des-lieux-${dossier.reference || dossier.id}.pdf`)}>
                 État des lieux PDF
               </button>
             </div>
