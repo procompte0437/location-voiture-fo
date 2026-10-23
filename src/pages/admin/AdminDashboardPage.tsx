@@ -168,7 +168,7 @@ export function AdminDashboardPage() {
           >
             File de validation
             {stats?.partners_pending ? (
-              <span className="ml-2 rounded-md bg-[#0b3d2e] px-1.5 py-0.5 text-xs font-bold text-white">
+              <span className="ml-2 rounded-md bg-[#8c4205] px-1.5 py-0.5 text-xs font-bold text-white">
                 {stats.partners_pending}
               </span>
             ) : null}
@@ -213,7 +213,7 @@ export function AdminDashboardPage() {
         <div className="rounded-xl border border-black/8 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink-900">À traiter</h2>
-            <Link to="/admin/validation" className="text-sm font-medium text-[#0b3d2e] hover:underline">
+            <Link to="/admin/validation" className="text-sm font-medium text-[#8c4205] hover:underline">
               Tout voir
             </Link>
           </div>
@@ -232,7 +232,7 @@ export function AdminDashboardPage() {
                     {p.city} · {p.owner?.email}
                   </p>
                 </div>
-                <span className="rounded-full bg-[#0b3d2e]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#0b3d2e]">
+                <span className="rounded-full bg-[#8c4205]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8c4205]">
                   En attente
                 </span>
               </div>
@@ -257,7 +257,7 @@ export function AdminDashboardPage() {
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-black/5">
                 <div
-                  className="h-full rounded-full bg-[#0b3d2e] transition-all duration-700"
+                  className="h-full rounded-full bg-[#8c4205] transition-all duration-700"
                   style={{
                     width: `${Math.min(100, ((stats?.partners_approved ?? 0) / Math.max(1, (stats?.partners_approved ?? 0) + (stats?.partners_pending ?? 0))) * 100)}%`,
                   }}
@@ -271,7 +271,7 @@ export function AdminDashboardPage() {
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-black/5">
                 <div
-                  className="h-full rounded-full bg-[#0b3d2e]/70 transition-all duration-700"
+                  className="h-full rounded-full bg-[#8c4205]/70 transition-all duration-700"
                   style={{ width: `${Math.min(100, (stats?.vehicles_published ?? 0) * 12)}%` }}
                 />
               </div>
@@ -345,7 +345,7 @@ export function AdminValidationPage() {
             onClick={() => setFiltreStatut(cle)}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
               filtreStatut === cle
-                ? 'bg-[#0b3d2e] text-white'
+                ? 'bg-[#8c4205] text-white'
                 : 'border border-black/10 bg-white text-ink-700 hover:bg-[#f4f5f4]'
             }`}
           >
@@ -413,7 +413,7 @@ export function AdminValidationPage() {
                 <button
                   type="button"
                   onClick={() => void approve(p.id)}
-                  className="rounded-lg bg-[#0b3d2e] px-3 py-1.5 text-xs font-semibold text-white"
+                  className="rounded-lg bg-[#8c4205] px-3 py-1.5 text-xs font-semibold text-white"
                 >
                   Valider
                 </button>
@@ -453,7 +453,7 @@ export function AdminAuditPage() {
         {logs.map((log) => (
           <li key={log.id} className="rounded-xl border border-black/8 bg-white px-4 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="rounded-md bg-[#0b3d2e] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+              <span className="rounded-md bg-[#8c4205] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
                 {log.action}
               </span>
               <span className="text-xs text-ink-500">
@@ -509,7 +509,7 @@ export function AdminPlaceholderPage({
         <p className="mt-2 text-sm text-ink-500">
           Les écrans détaillés arriveront avec la suite du MVP.
         </p>
-        <Link to="/admin" className="mt-6 inline-block text-sm font-semibold text-[#0b3d2e] underline">
+        <Link to="/admin" className="mt-6 inline-block text-sm font-semibold text-[#8c4205] underline">
           Retour au tableau de bord
         </Link>
       </div>

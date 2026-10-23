@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { CoqueSession } from '../components/layout/CoqueSession'
 import { PublicHeader } from '../components/layout/Header'
 import { BarreEtapesReservation } from '../components/reservation/BarreEtapesReservation'
 import { ContentLoader } from '../components/ui/Spinner'
@@ -12,9 +13,15 @@ type OptionTri = { slug: string; label: string }
 
 const TRI_PAR_DEFAUT: OptionTri[] = [
   { slug: 'price', label: 'Prix croissant' },
-  { slug: 'rating', label: 'Note partenaire' },
+  { slug: 'rating', label: 'Mieux notés' },
   { slug: 'popularity', label: 'Popularité' },
 ]
+
+/** Même visuel que le comparateur : la photo reste derrière le contenu, pas derrière la navbar. */
+const PHOTO_FOND =
+  'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=2200&q=80'
+
+type CategorieListe = { slug: string; label: string }
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams()
@@ -34,15 +41,19 @@ export function SearchPage() {
   const [parPage, setParPage] = useState(Number(params.get('per_page') || 8))
   const [recherche, setRecherche] = useState(params.get('q') || '')
   const [rechercheDebounce, setRechercheDebounce] = useState(params.get('q') || '')
-  const [categories, setCategories] = useState<{ slug: string; label: string }[]>([])
+  const [categories, setCategories] = useState<CategorieListe[]>([])
   const [optionsTri, setOptionsTri] = useState<OptionTri[]>(TRI_PAR_DEFAUT)
+  /** null tant que le décompte n’est pas arrivé : on ne grise rien avant la réponse. */
+  const [compteurs, setCompteurs] = useState<Record<string, number> | null>(null)
 
   useEffect(() => {
     void api.get('/catalog/categories').then(({ data }) => setCategories(data.data || []))
     void api
       .get('/catalog/references', { params: { type: 'vehicle_sort' } })
       .then(({ data }) => {
-        const liste = (data.data || []) as OptionTri[]
+        const liste = ((data.data || []) as OptionTri[]).map((option) =>
+          option.slug === 'rating' ? { ...option, label: 'Mieux notés' } : option,
+        )
         if (liste.length) {
           setOptionsTri(liste)
           // Si le tri actuel n’existe plus (désactivé), bascule sur le premier.
@@ -99,6 +110,12 @@ export function SearchPage() {
           per_page: data.meta?.per_page ?? parPage,
           last_page: data.meta?.last_page ?? 1,
         })
+        const liste = (data.meta?.par_categorie || []) as { slug: string; disponibles: number }[]
+        setCompteurs(Object.fromEntries(liste.map((c) => [c.slug, c.disponibles])))
+      })
+      .catch(() => {
+        setVehicles([])
+        setCompteurs({})
       })
       .finally(() => setLoading(false))
     // params intentionnellement hors deps : on synchronise l’URL depuis l’état local.
@@ -106,14 +123,30 @@ export function SearchPage() {
   }, [category, sort, page, parPage, rechercheDebounce])
 
   const searchQuery = params.toString()
-  const categoryOptions = [{ slug: '', label: 'Toutes' }, ...categories]
+  const avecVoiture = categories.filter((c) => (compteurs?.[c.slug] ?? 0) > 0)
+  const sansVoiture = categories.filter((c) => compteurs !== null && (compteurs[c.slug] ?? 0) === 0)
+  const categoryOptions: (CategorieListe & { grisee: boolean })[] = [
+    { slug: '', label: 'Toutes', grisee: false },
+    ...(compteurs
+      ? [
+          ...avecVoiture.map((c) => ({ ...c, grisee: false })),
+          ...sansVoiture.map((c) => ({ ...c, grisee: true })),
+        ]
+      : categories.map((c) => ({ ...c, grisee: false }))),
+  ]
   const pageCourante = Math.min(meta.page, meta.last_page)
 
-  return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
+  const corps = (
+      <div className="relative min-h-[calc(100vh-5.5rem)]">
+        <div
+          className="pointer-events-none absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(247,244,239,0.62) 0%, rgba(247,244,239,0.78) 100%), url('${PHOTO_FOND}')`,
+          }}
+          aria-hidden
+        />
 
-      <div className="mx-auto max-w-6xl px-4 pt-8 md:px-6">
+      <div className="relative mx-auto max-w-6xl px-4 pt-8 md:px-6">
         <BarreEtapesReservation etape="recherche" />
         <h1 className="mt-6 font-display text-3xl font-bold text-forest-950 md:text-4xl">
           Nos véhicules
@@ -123,8 +156,8 @@ export function SearchPage() {
         </p>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[240px_1fr] md:px-6">
-        <aside className="space-y-6">
+      <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[240px_1fr] md:px-6">
+        <aside className="h-fit space-y-6 rounded-2xl bg-white/85 p-4 shadow-sm backdrop-blur-sm">
           <div>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-500">
               Catégorie
@@ -134,9 +167,15 @@ export function SearchPage() {
                 <button
                   key={c.slug || 'all'}
                   type="button"
+                  disabled={c.grisee}
                   onClick={() => setCategory(c.slug)}
+                  title={c.grisee ? 'Aucun véhicule disponible' : undefined}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
-                    category === c.slug ? 'bg-forest-800 text-white' : 'hover:bg-sand-100'
+                    c.grisee
+                      ? 'cursor-not-allowed text-neutral-400'
+                      : category === c.slug
+                        ? 'bg-forest-800 text-white'
+                        : 'hover:bg-sand-100'
                   }`}
                 >
                   {c.label || labels.categories[c.slug] || c.slug}
@@ -247,6 +286,19 @@ export function SearchPage() {
           )}
         </main>
       </div>
-    </div>
+      </div>
+  )
+
+  return (
+    <CoqueSession
+      visiteur={
+        <div className="min-h-screen bg-sand-50">
+          <PublicHeader />
+          {corps}
+        </div>
+      }
+    >
+      {corps}
+    </CoqueSession>
   )
 }

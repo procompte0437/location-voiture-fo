@@ -34,6 +34,8 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
     title: 'Opérations',
     items: [
       { to: '/admin/comptes', label: 'Comptes' },
+      { to: '/admin/validation', label: 'Validation partenaires' },
+      { to: '/admin/evaluation', label: 'Évaluation partenaires' },
       { to: '/admin/reservations', label: 'Réservations' },
       { to: '/admin/finances', label: 'Finances' },
     ],
@@ -41,7 +43,12 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
 ]
 
 /** Entrées réservées au super admin (comptes + agences). */
-const ROUTES_SUPER_ADMIN = new Set(['/admin/comptes', '/admin/agences'])
+const ROUTES_SUPER_ADMIN = new Set([
+  '/admin/comptes',
+  '/admin/agences',
+  '/admin/validation',
+  '/admin/evaluation',
+])
 
 const ICONS: Record<string, ReactNode> = {
   '/admin': (
@@ -66,6 +73,18 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M3 19c0-3 2.5-5 6-5s6 2 6 5" strokeLinecap="round" />
       <circle cx="17" cy="9" r="2.5" />
       <path d="M21 19c0-2.2-1.5-3.8-4-4.2" strokeLinecap="round" />
+    </svg>
+  ),
+  '/admin/validation': (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.5 2.5L16 9.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  '/admin/evaluation': (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 19V5M4 19h16" strokeLinecap="round" />
+      <path d="M8 15v-3M12 15V8M16 15v-5" strokeLinecap="round" />
     </svg>
   ),
   '/admin/vehicules': (
@@ -101,6 +120,8 @@ const PAGE_HINTS: Record<string, string> = {
   '/admin/vehicules': 'CRUD catalogue — filtres, détail, publication',
   '/admin/vehicules/nouveau': 'Création d’une nouvelle offre véhicule',
   '/admin/comptes': 'Comptes clients, partenaires et admins',
+  '/admin/validation': 'Validation des dossiers partenaires',
+  '/admin/evaluation': 'Prestataires à déplier, avec le tableau de toutes leurs voitures',
   '/admin/reservations': 'Flux de réservations',
   '/admin/finances': 'GMV et commissions',
   '/admin/referentiel': 'Lieux, marques, modèles et listes déroulantes',
@@ -144,11 +165,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-[#0b3d2e] px-3 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-[#8c4205] px-3 py-2 text-sm font-semibold text-white"
         >
           Menu
         </button>
-        <Link to="/admin" className="inline-flex items-center gap-2 text-lg font-semibold text-[#0b3d2e]">
+        <Link to="/admin" className="inline-flex items-center gap-2 text-lg font-semibold text-[#8c4205]">
           <LogoDoto className="h-11 w-11" />
           DOTO
         </Link>
@@ -165,7 +186,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#061c15] text-white transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#3d1c02] text-white transition-transform duration-300 ease-out lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -258,7 +279,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <p className="text-sm font-medium text-ink-900">{user?.name}</p>
                 <p className="text-[11px] text-ink-500">{user?.email}</p>
               </div>
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-[#0b3d2e] text-xs font-bold text-white">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-[#8c4205] text-xs font-bold text-white">
                 {initials(user?.name)}
               </div>
             </div>

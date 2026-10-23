@@ -6,21 +6,27 @@
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", Georgia, serif;
   --font-affiche: "Barlow Condensed", "Arial Narrow", sans-serif;
-  --color-accent-500: #0f6b45;
-  --color-accent-600: #0a3d2a;
-  --color-forest-950: #06281c;
-  --color-forest-900: #0a3d2a;
-  --color-forest-800: #0d5338;
-  --color-forest-700: #0f6b45;
-  --color-forest-600: #14855a;
-  --color-forest-500: #1a9f6c;
-  --color-forest-100: #e7f5ee;
+  /* Orange du logo (#F0A038) pour les grands aplats. Les tons forest plus foncés
+     gardent un texte blanc lisible sur les boutons. Le vert du logo est l’encre. */
+  --color-accent-500: #b85c00;
+  --color-accent-600: #8c4205;
+  --color-forest-950: #3d1c02;
+  --color-forest-900: #6e3404;
+  --color-forest-800: #8c4205;
+  --color-forest-700: #a34e06;
+  --color-forest-600: #b85c00;
+  --color-forest-500: #d4892a;
+  --color-forest-100: #ffedd4;
+  --color-forest-50: #fff8ee;
+  --color-marque-500: #f0a038;
+  --color-marque-encre: #005038;
+  --color-marque-sombre: #021910;
   --color-sand-50: #f7f4ef;
   --color-sand-100: #efe8dc;
   --color-sand-200: #e2d5c2;
-  --color-gold-400: #e6b84a;
-  --color-gold-500: #d4a017;
-  --color-gold-600: #b8860b;
+  --color-gold-400: #f6b45a;
+  --color-gold-500: #f0a038;
+  --color-gold-600: #8c4205;
   --color-ink-900: #14201a;
   --color-ink-700: #3a4a42;
   --color-ink-500: #6b7a72;
@@ -45,4 +51,89 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* Mouvement court et continu : le site change d’état sans à-coup. */
+:root {
+  --ease-fluide: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+a,
+button {
+  transition:
+    color 0.2s var(--ease-fluide),
+    background-color 0.2s var(--ease-fluide),
+    border-color 0.2s var(--ease-fluide),
+    box-shadow 0.25s var(--ease-fluide),
+    transform 0.25s var(--ease-fluide),
+    opacity 0.2s var(--ease-fluide);
+}
+
+@keyframes entree-page {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.entree-page {
+  animation: entree-page 0.55s var(--ease-fluide);
+}
+
+@keyframes fond-vivant {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.08) translate3d(-1.5%, -1%, 0);
+  }
+}
+
+.fond-vivant {
+  animation: fond-vivant 28s ease-in-out infinite alternate;
+}
+
+.apparition {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s var(--ease-fluide),
+    transform 0.7s var(--ease-fluide);
+}
+
+.apparition-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.carte-fluide {
+  transition:
+    transform 0.4s var(--ease-fluide),
+    box-shadow 0.4s var(--ease-fluide);
+}
+
+.carte-fluide:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 40px rgba(20, 32, 26, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .entree-page,
+  .fond-vivant,
+  .apparition,
+  .carte-fluide,
+  .carte-fluide:hover {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
 }

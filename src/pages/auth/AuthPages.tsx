@@ -48,7 +48,9 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-sand-50">
+      <PublicHeader />
+      <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -57,7 +59,6 @@ export function LoginPage() {
         }}
       />
       <div className="relative flex flex-1 flex-col">
-      <PublicHeader />
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
         <div className="rounded-2xl border border-white/40 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm">
         <h1 className="font-display text-3xl font-bold text-forest-950">Connexion</h1>
@@ -158,6 +159,7 @@ export function LoginPage() {
       </div>
       <PiedDePage />
       </div>
+      </div>
     </div>
   )
 }
@@ -165,6 +167,7 @@ export function LoginPage() {
 export function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [profil, setProfil] = useState<'customer' | 'partner'>('customer')
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -174,14 +177,25 @@ export function RegisterPage() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [confirmationSignalee, setConfirmationSignalee] = useState(false)
+
+  const motsDePasseDifferents = form.password !== form.password_confirmation
+  const messageConfirmation =
+    confirmationSignalee && motsDePasseDifferents
+      ? 'La confirmation du mot de passe ne correspond pas.'
+      : ''
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    setLoading(true)
     setError('')
+    if (form.password !== form.password_confirmation) {
+      setConfirmationSignalee(true)
+      return
+    }
+    setLoading(true)
     try {
-      await register(form)
-      navigate('/mes-reservations')
+      const utilisateur = await register({ ...form, role: profil })
+      navigate(utilisateur.role === 'partner' ? '/partenaire' : '/mes-reservations', { replace: true })
     } catch (err) {
       setError(messageErreurApi(err, 'Inscription impossible. Vérifiez les champs.'))
     } finally {
@@ -189,54 +203,98 @@ export function RegisterPage() {
     }
   }
 
+  const champ = 'w-full rounded-xl border border-sand-200 bg-white px-4 py-3 outline-none focus:border-forest-700'
+
   return (
-    <div className="min-h-screen bg-sand-50">
+    <div className="flex min-h-screen flex-col bg-sand-50">
       <PublicHeader />
-      <div className="mx-auto max-w-md px-4 py-16">
-        <h1 className="font-display text-3xl font-bold text-forest-950">Créer un compte</h1>
-        <form onSubmit={onSubmit} className="mt-8 space-y-4 rounded-2xl border border-sand-200 bg-white p-6">
-          {(['name', 'email', 'phone', 'password', 'password_confirmation'] as const).map((field) => (
-            <input
-              key={field}
-              type={field.includes('password') ? 'password' : field === 'email' ? 'email' : 'text'}
-              placeholder={
-                field === 'name'
-                  ? 'Nom'
-                  : field === 'email'
-                    ? 'Email'
-                    : field === 'phone'
-                      ? 'Téléphone'
-                      : field === 'password'
-                        ? 'Mot de passe'
-                        : 'Confirmation'
-              }
-              value={form[field]}
-              onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-              className="w-full rounded-xl border border-sand-200 px-4 py-3"
-              required={field !== 'phone'}
-            />
-          ))}
-          {error && <p className="text-sm text-red-700">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white"
-          >
-            {loading ? 'Création…' : 'S’inscrire'}
-          </button>
-          <Link
-            to="/"
-            className="block w-full rounded-xl border border-sand-200 py-3 text-center text-sm font-medium text-forest-800 hover:bg-sand-50"
-          >
-            Retour à l’accueil
-          </Link>
-        </form>
-        <p className="mt-4 text-sm text-ink-500">
-          Déjà un compte ?{' '}
-          <Link to="/connexion" className="text-forest-700 underline">
-            Connexion
-          </Link>
-        </p>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
+          }}
+        />
+        <div className="relative flex flex-1 flex-col">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+            <div className="rounded-2xl border border-white/40 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm">
+              <h1 className="font-display text-3xl font-bold text-forest-950">Créer un compte</h1>
+              <p className="mt-2 text-sm text-ink-500">
+                {profil === 'partner'
+                  ? 'Vous compléterez votre dossier dans l’espace partenaire.'
+                  : 'Choisissez le type de compte, puis renseignez vos accès.'}
+              </p>
+              <div className="mt-5 grid grid-cols-2 gap-2" role="group" aria-label="Type de compte">
+                <button
+                  type="button"
+                  onClick={() => setProfil('customer')}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                    profil === 'customer'
+                      ? 'border-forest-800 bg-forest-800 text-white'
+                      : 'border-sand-200 bg-sand-50 text-forest-900'
+                  }`}
+                >
+                  Client
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfil('partner')}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${
+                    profil === 'partner'
+                      ? 'border-forest-800 bg-forest-800 text-white'
+                      : 'border-sand-200 bg-sand-50 text-forest-900'
+                  }`}
+                >
+                  Partenaire
+                </button>
+              </div>
+              <form onSubmit={onSubmit} className="mt-5 space-y-3 text-left">
+                <input required placeholder="Nom" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={champ} />
+                <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={champ} />
+                <input placeholder="Téléphone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className={champ} />
+                <input required type="password" placeholder="Mot de passe" autoComplete="new-password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={champ} />
+                <input
+                  required
+                  type="password"
+                  placeholder="Confirmation"
+                  autoComplete="new-password"
+                  value={form.password_confirmation}
+                  onChange={(e) => setForm((f) => ({ ...f, password_confirmation: e.target.value }))}
+                  onBlur={() => setConfirmationSignalee(true)}
+                  aria-invalid={messageConfirmation ? true : undefined}
+                  className={`${champ} ${messageConfirmation ? 'border-red-500 focus:border-red-500' : ''}`}
+                />
+                {messageConfirmation && (
+                  <p className="text-sm text-red-700" role="alert">
+                    {messageConfirmation}
+                  </p>
+                )}
+                {error && <p className="text-sm text-red-700">{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-xl bg-forest-800 py-3 font-semibold text-white hover:bg-forest-700 disabled:opacity-60"
+                >
+                  {loading ? 'Création…' : 'S’inscrire'}
+                </button>
+                <Link
+                  to="/"
+                  className="block w-full rounded-xl border border-sand-200 bg-sand-50 py-3 text-center text-sm font-semibold text-forest-800 hover:bg-sand-100"
+                >
+                  Retour à l’accueil
+                </Link>
+              </form>
+              <p className="mt-4 text-sm text-ink-500">
+                Déjà un compte ?{' '}
+                <Link to="/connexion" className="font-semibold text-forest-800">
+                  Connexion
+                </Link>
+              </p>
+            </div>
+          </div>
+          <PiedDePage />
+        </div>
       </div>
     </div>
   )

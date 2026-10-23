@@ -1,29 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { NavEspaceClient } from '../../components/client/NavEspaceClient'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { CoqueEspaceClient } from '../../components/client/CoqueEspaceClient'
+import { CoqueSession } from '../../components/layout/CoqueSession'
 import { PublicHeader } from '../../components/layout/Header'
 import { SearchForm } from '../../components/search/SearchForm'
+import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
+import { FenetreModale } from '../../components/ui/FenetreModale'
 import { ContentLoader } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
-import api, { formatXaf, telechargerFichier } from '../../lib/api'
+import { useCatalog } from '../../context/CatalogContext'
+import api, { formatXaf, messageErreurApi, telechargerFichier } from '../../lib/api'
 import type { Booking } from '../../types'
 
+const LIBELLES_STATUT: Record<string, string> = {
+  pending_payment: 'Paiement en attente',
+  locked: 'En cours de validation',
+  pending_partner: 'Demande en attente',
+  confirmed: 'Confirmée',
+  refused: 'Refusée',
+  ongoing: 'En cours de location',
+  completed: 'Clôturée',
+  cancelled: 'Annulée',
+  expired: 'Expirée',
+  refunded: 'Remboursée',
+  archived: 'Archivée',
+}
+
 function libelleStatut(statut: string) {
-  const map: Record<string, string> = {
-    pending_payment: 'Paiement en attente',
-    locked: 'En cours de validation',
-    pending_partner: 'Demande en attente',
-    confirmed: 'Confirmée',
-    refused: 'Refusée',
-    ongoing: 'En cours de location',
-    completed: 'Clôturée',
-    cancelled: 'Annulée',
-    expired: 'Expirée',
-    refunded: 'Remboursée',
-    archived: 'Archivée',
-  }
-  return map[statut] || statut
+  return LIBELLES_STATUT[statut] || statut
 }
 
 type IdentifiantsConfirm = {
@@ -43,8 +48,19 @@ function lireIdentifiantsStockes(bookingId?: string): IdentifiantsConfirm | null
   }
 }
 
+/** Après la demande, le compte reste dans son espace, pas sur le site public. */
+function lienApresReservation(role: string) {
+  if (role === 'super_admin' || role === 'admin') return '/admin/reservations'
+  if (role === 'partner' || role === 'partner_agent' || role === 'finance_manager') {
+    return '/partenaire/reservations'
+  }
+  return '/mes-reservations'
+}
+
 export function ConfirmationPage() {
   const { id } = useParams()
+  const { user } = useAuth()
+  const { labels } = useCatalog()
   const location = useLocation()
   const state = location.state as
     | ({
@@ -54,6 +70,8 @@ export function ConfirmationPage() {
 
   const stockes = useMemo(() => lireIdentifiantsStockes(id), [id])
   const [booking, setBooking] = useState<Booking | null>(state?.booking || null)
+  const [telechargementRecap, setTelechargementRecap] = useState(false)
+  const [erreurRecap, setErreurRecap] = useState('')
 
   const loginEmail = state?.loginEmail || stockes?.loginEmail || ''
   const temporaryPassword = state?.temporaryPassword || stockes?.temporaryPassword || null
@@ -71,21 +89,46 @@ export function ConfirmationPage() {
   }, [id, state?.booking])
 
   if (!booking) {
+    const message = <p className="p-8">Réservation introuvable. Connectez-vous pour la consulter.</p>
     return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
-        <p className="p-8">Réservation introuvable. Connectez-vous pour la consulter.</p>
-      </div>
+      <CoqueSession
+        visiteur={
+          <div className="min-h-screen bg-sand-50">
+            <PublicHeader />
+            {message}
+          </div>
+        }
+      >
+        {message}
+      </CoqueSession>
     )
   }
 
   const emailConnexion = loginEmail || (booking as Booking & { guest_email?: string }).guest_email || ''
-  const lienConnexion = `/connexion?redirect=${encodeURIComponent('/mes-reservations')}${
-    emailConnexion ? `&email=${encodeURIComponent(emailConnexion)}` : ''
-  }`
+  const lienConnexion = user
+    ? lienApresReservation(user.role)
+    : `/connexion?redirect=${encodeURIComponent('/mes-reservations')}${
+        emailConnexion ? `&email=${encodeURIComponent(emailConnexion)}` : ''
+      }`
 
-  return (
-    <div className="relative min-h-screen">
+  async function telechargerRecapitulatif() {
+    if (!id) return
+    setTelechargementRecap(true)
+    setErreurRecap('')
+    try {
+      await telechargerFichier(
+        `/bookings/${id}/contrat`,
+        `recapitulatif-${booking.reference}.pdf`,
+      )
+    } catch {
+      setErreurRecap('Impossible de télécharger le récapitulatif. Réessayez dans un instant.')
+    } finally {
+      setTelechargementRecap(false)
+    }
+  }
+
+  const carte = (
+      <div className="relative min-h-0 flex-1">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -94,9 +137,7 @@ export function ConfirmationPage() {
         }}
       />
       <div className="relative">
-      <PublicHeader />
-      <div className="mx-auto max-w-lg px-4 py-10 md:py-16">
-        <NavEspaceClient />
+      <div className="mx-auto max-w-3xl px-4 py-10 md:py-16">
         <div className="rounded-2xl border border-white/40 bg-white/95 p-8 text-center shadow-xl backdrop-blur-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">Confirmation</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-forest-950">
@@ -110,16 +151,24 @@ export function ConfirmationPage() {
             Référence <strong className="text-forest-800">{booking.reference}</strong>
           </p>
           <p className="mt-2 text-sm text-ink-500">Statut : {libelleStatut(booking.status)}</p>
+          {booking.payment_method && (
+            <p className="mt-2 text-sm text-ink-700">
+              Moyen de paiement :{' '}
+              {labels.payment_method?.[booking.payment_method] || booking.payment_method}
+            </p>
+          )}
           <p className="mt-3 text-lg font-semibold text-forest-900">
             {formatXaf(booking.total_amount)}
           </p>
           <button
             type="button"
-            className="mt-4 rounded-full border border-forest-800 px-4 py-2 text-sm font-medium text-forest-800"
-            onClick={() => void telechargerFichier(`/bookings/${id}/contrat`, `contrat-${booking.reference}.pdf`)}
+            disabled={telechargementRecap}
+            className="mt-4 rounded-full border border-forest-800 px-4 py-2 text-sm font-medium text-forest-800 disabled:opacity-50"
+            onClick={() => void telechargerRecapitulatif()}
           >
-            Télécharger le récapitulatif
+            {telechargementRecap ? 'Téléchargement…' : 'Télécharger le récapitulatif'}
           </button>
+          {erreurRecap && <p className="mt-2 text-sm text-red-800">{erreurRecap}</p>}
 
           {showCredentials && temporaryPassword && (
             <div className="mt-6 rounded-xl border border-forest-600/15 bg-forest-50/60 px-4 py-3 text-left text-sm text-ink-700">
@@ -149,34 +198,32 @@ export function ConfirmationPage() {
             >
               Mes réservations
             </Link>
-            <Link to="/" className="text-forest-700 hover:underline">
-              Retour à l’accueil
-            </Link>
+            {!user && (
+              <Link to="/" className="text-forest-700 hover:underline">
+                Retour à l’accueil
+              </Link>
+            )}
           </div>
         </div>
       </div>
       </div>
-    </div>
+      </div>
+  )
+
+  return (
+    <CoqueSession
+      visiteur={
+        <div className="flex min-h-screen flex-col bg-sand-50">
+          <PublicHeader />
+          {carte}
+        </div>
+      }
+    >
+      {carte}
+    </CoqueSession>
   )
 }
 
-type FiltreStatutClient = 'toutes' | 'en_cours' | 'confirmees' | 'terminees' | 'annulees'
-
-const FILTRES_STATUT: { cle: FiltreStatutClient; libelle: string; statuts?: string[] }[] = [
-  { cle: 'toutes', libelle: 'Tous les statuts' },
-  {
-    cle: 'en_cours',
-    libelle: 'En cours',
-    statuts: ['pending_payment', 'locked', 'pending_partner', 'ongoing'],
-  },
-  { cle: 'confirmees', libelle: 'Confirmées', statuts: ['confirmed'] },
-  { cle: 'terminees', libelle: 'Terminées', statuts: ['completed'] },
-  {
-    cle: 'annulees',
-    libelle: 'Annulées',
-    statuts: ['cancelled', 'expired', 'refunded', 'archived'],
-  },
-]
 
 function formaterDateCourte(iso?: string) {
   if (!iso) return '—'
@@ -189,6 +236,13 @@ function formaterDateCourte(iso?: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+/** Demandes pas encore acceptées : le client peut encore les annuler. */
+const STATUTS_ANNULABLES = new Set(['locked', 'pending_payment', 'pending_partner'])
+
+function peutAnnuler(statut: string) {
+  return STATUTS_ANNULABLES.has(statut)
 }
 
 function badgeStatut(statut: string) {
@@ -224,17 +278,56 @@ function libelleDuree(jours: number) {
   return `${jours} jour${jours > 1 ? 's' : ''}`
 }
 
-type TriReservations = 'recent' | 'duree_desc' | 'duree_asc'
-type FiltreDureeMin = '' | '3' | '5' | '7'
+function nomLieuReservation(b: Booking) {
+  const lieu = b.pickup_location
+  if (!lieu?.name) return ''
+  return lieu.city ? `${lieu.name} — ${lieu.city}` : lieu.name
+}
+
+/** Jour calendaire local, pour comparer un filtre date à la période de location. */
+function jourReservation(iso?: string) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const mois = String(date.getMonth() + 1).padStart(2, '0')
+  const jour = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${mois}-${jour}`
+}
+
+function valeursUniques(valeurs: string[]) {
+  return [...new Set(valeurs.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'))
+}
+
+type TriReservations =
+  | 'recent'
+  | 'depart_asc'
+  | 'depart_desc'
+  | 'duree_asc'
+  | 'duree_desc'
+  | 'montant_asc'
+  | 'montant_desc'
+type FiltreDureeMin = '' | '1' | '3' | '5' | '7'
+type FiltreMontantMin = '' | '50000' | '100000' | '200000' | '500000'
 
 export function MyBookingsPage() {
   const { user, loading: authLoading } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const [creationOuverte, setCreationOuverte] = useState(() => params.get('nouvelle') === '1')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [error, setError] = useState('')
   const [chargement, setChargement] = useState(true)
-  const [filtreStatut, setFiltreStatut] = useState<FiltreStatutClient>('toutes')
+  const [filtreStatut, setFiltreStatut] = useState('')
+  const [filtreVehicule, setFiltreVehicule] = useState('')
+  const [filtreLieu, setFiltreLieu] = useState('')
+  const [departDes, setDepartDes] = useState('')
+  const [retourJusqua, setRetourJusqua] = useState('')
   const [tri, setTri] = useState<TriReservations>('recent')
   const [dureeMin, setDureeMin] = useState<FiltreDureeMin>('')
+  const [montantMin, setMontantMin] = useState<FiltreMontantMin>('')
+  const [aAnnuler, setAAnnuler] = useState<Booking | null>(null)
+  const [aSupprimer, setASupprimer] = useState<Booking | null>(null)
+  const [annulation, setAnnulation] = useState(false)
+  const [suppression, setSuppression] = useState(false)
 
   async function charger() {
     setChargement(true)
@@ -255,77 +348,178 @@ export function MyBookingsPage() {
     void charger()
   }, [user, authLoading])
 
-  const filtrées = useMemo(() => {
-    const def = FILTRES_STATUT.find((o) => o.cle === filtreStatut)
-    let liste = def?.statuts
-      ? bookings.filter((b) => def.statuts!.includes(b.status))
-      : [...bookings]
+  // L’ancienne adresse /mes-reservations/nouvelle arrive avec ?nouvelle=1.
+  useEffect(() => {
+    if (params.get('nouvelle') === '1') setCreationOuverte(true)
+  }, [params])
 
-    const min = dureeMin ? Number(dureeMin) : 0
-    if (min > 0) {
-      liste = liste.filter((b) => dureeJours(b) >= min)
+  function ouvrirCreation() {
+    setCreationOuverte(true)
+  }
+
+  function fermerCreation() {
+    setCreationOuverte(false)
+    if (params.get('nouvelle') !== '1') return
+    const suivants = new URLSearchParams(params)
+    suivants.delete('nouvelle')
+    setParams(suivants, { replace: true })
+  }
+
+  async function confirmerAnnulation() {
+    if (!aAnnuler) return
+    setAnnulation(true)
+    setError('')
+    try {
+      await api.post(`/bookings/${aAnnuler.id}/annuler`)
+      setAAnnuler(null)
+      await charger()
+    } catch (err) {
+      setError(messageErreurApi(err, 'Annulation impossible.'))
+      setAAnnuler(null)
+    } finally {
+      setAnnulation(false)
     }
+  }
 
-    if (tri === 'duree_desc') {
+  async function confirmerSuppression() {
+    if (!aSupprimer) return
+    setSuppression(true)
+    setError('')
+    try {
+      await api.delete(`/bookings/${aSupprimer.id}`)
+      setASupprimer(null)
+      await charger()
+    } catch (err) {
+      setError(messageErreurApi(err, 'Suppression impossible.'))
+      setASupprimer(null)
+    } finally {
+      setSuppression(false)
+    }
+  }
+
+  const vehicules = useMemo(
+    () => valeursUniques(bookings.map(nomVehiculeReservation)),
+    [bookings],
+  )
+  const lieux = useMemo(() => valeursUniques(bookings.map(nomLieuReservation)), [bookings])
+
+  const filtrées = useMemo(() => {
+    let liste = bookings.filter((b) => {
+      if (filtreStatut && b.status !== filtreStatut) return false
+      if (filtreVehicule && nomVehiculeReservation(b) !== filtreVehicule) return false
+      if (filtreLieu && nomLieuReservation(b) !== filtreLieu) return false
+      if (departDes && jourReservation(b.pickup_at) < departDes) return false
+      if (retourJusqua && jourReservation(b.return_at) > retourJusqua) return false
+      if (dureeMin && dureeJours(b) < Number(dureeMin)) return false
+      if (montantMin && b.total_amount < Number(montantMin)) return false
+      return true
+    })
+
+    if (tri === 'depart_asc') {
+      liste = [...liste].sort(
+        (a, b) => new Date(a.pickup_at).getTime() - new Date(b.pickup_at).getTime(),
+      )
+    } else if (tri === 'depart_desc') {
+      liste = [...liste].sort(
+        (a, b) => new Date(b.pickup_at).getTime() - new Date(a.pickup_at).getTime(),
+      )
+    } else if (tri === 'duree_desc') {
       liste = [...liste].sort((a, b) => dureeJours(b) - dureeJours(a))
     } else if (tri === 'duree_asc') {
       liste = [...liste].sort((a, b) => dureeJours(a) - dureeJours(b))
+    } else if (tri === 'montant_desc') {
+      liste = [...liste].sort((a, b) => b.total_amount - a.total_amount)
+    } else if (tri === 'montant_asc') {
+      liste = [...liste].sort((a, b) => a.total_amount - b.total_amount)
     }
 
     return liste
-  }, [bookings, filtreStatut, tri, dureeMin])
+  }, [
+    bookings,
+    filtreStatut,
+    filtreVehicule,
+    filtreLieu,
+    departDes,
+    retourJusqua,
+    tri,
+    dureeMin,
+    montantMin,
+  ])
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
-        <div className="mx-auto max-w-5xl px-4 py-10">
-          <ContentLoader label="Chargement de votre espace…" />
-        </div>
-      </div>
-    )
+  const filtreActif =
+    filtreStatut !== '' ||
+    filtreVehicule !== '' ||
+    filtreLieu !== '' ||
+    departDes !== '' ||
+    retourJusqua !== '' ||
+    dureeMin !== '' ||
+    montantMin !== '' ||
+    tri !== 'recent'
+
+  function reinitialiserFiltres() {
+    setFiltreStatut('')
+    setFiltreVehicule('')
+    setFiltreLieu('')
+    setDepartDes('')
+    setRetourJusqua('')
+    setDureeMin('')
+    setMontantMin('')
+    setTri('recent')
   }
 
-  if (!user) {
+  if (!authLoading && !user) {
+    const retour = params.get('nouvelle') === '1' ? '/mes-reservations?nouvelle=1' : '/mes-reservations'
     return (
       <Navigate
-        to={`/connexion?redirect=${encodeURIComponent('/mes-reservations')}`}
+        to={`/connexion?redirect=${encodeURIComponent(retour)}`}
         replace
       />
     )
   }
 
+  const enChargement = authLoading || chargement
+
   return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <NavEspaceClient />
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
-            Espace client
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
-            Mes réservations
-          </h1>
-          <p className="mt-1.5 text-sm text-ink-500">
-            Suivez vos demandes, confirmations et locations passées.
-          </p>
+    <CoqueEspaceClient>
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
+              Espace client
+            </p>
+            <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
+              Mes réservations
+            </h1>
+            <p className="mt-1.5 text-sm text-ink-500">
+              Les annulations restent dans votre historique. Seule la suppression les retire définitivement.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={ouvrirCreation}
+            className="inline-flex items-center gap-2 rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            Nouvelle réservation
+          </button>
         </div>
 
         {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
 
-        {!chargement && bookings.length === 0 ? (
+        {!enChargement && bookings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-black/12 bg-white px-6 py-14 text-center">
             <p className="font-medium text-ink-800">Aucune réservation pour le moment</p>
             <p className="mt-1 text-sm text-ink-500">
               Vos prochaines réservations apparaîtront ici.
             </p>
-            <Link
-              to="/mes-reservations/nouvelle"
+            <button
+              type="button"
+              onClick={ouvrirCreation}
               className="mt-5 inline-flex rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white"
             >
               Réserver une voiture
-            </Link>
+            </button>
           </div>
         ) : (
           <TableauDonnees
@@ -395,12 +589,6 @@ export function MyBookingsPage() {
                 },
               },
               {
-                cle: 'partenaire',
-                libelle: 'Partenaire',
-                rendu: (b) =>
-                  b.partner?.company_name || b.partner?.manager_name || '—',
-              },
-              {
                 cle: 'montant',
                 libelle: 'Montant',
                 rendu: (b) => (
@@ -423,55 +611,165 @@ export function MyBookingsPage() {
                 nomVehiculeReservation(b),
                 b.vehicle?.brand,
                 b.vehicle?.model,
-                b.partner?.company_name,
-                b.partner?.manager_name,
+                nomLieuReservation(b),
                 libelleStatut(b.status),
                 b.status,
                 libelleDuree(dureeJours(b)),
+                String(b.total_amount ?? ''),
               ]
                 .filter(Boolean)
                 .join(' ')
             }
+            filtreActif={filtreActif}
             filtresSupplementaires={
               <>
-                <select
-                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                  value={filtreStatut}
-                  onChange={(e) => setFiltreStatut(e.target.value as FiltreStatutClient)}
-                  aria-label="Filtrer par statut"
-                >
-                  {FILTRES_STATUT.map((f) => (
-                    <option key={f.cle} value={f.cle}>
-                      {f.libelle}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                  value={dureeMin}
-                  onChange={(e) => setDureeMin(e.target.value as FiltreDureeMin)}
-                  aria-label="Filtrer par durée minimale"
-                >
-                  <option value="">Toutes les durées</option>
-                  <option value="3">3 jours et plus</option>
-                  <option value="5">5 jours et plus</option>
-                  <option value="7">7 jours et plus (plus longues)</option>
-                </select>
-                <select
-                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
-                  value={tri}
-                  onChange={(e) => setTri(e.target.value as TriReservations)}
-                  aria-label="Trier les réservations"
-                >
-                  <option value="recent">Tri : récentes</option>
-                  <option value="duree_desc">Tri : plus longues d’abord</option>
-                  <option value="duree_asc">Tri : plus courtes d’abord</option>
-                </select>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Statut
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={filtreStatut}
+                    onChange={(e) => setFiltreStatut(e.target.value)}
+                    aria-label="Filtrer par statut"
+                  >
+                    <option value="">Tous les statuts</option>
+                    {Object.entries(LIBELLES_STATUT).map(([cle, libelle]) => (
+                      <option key={cle} value={cle}>
+                        {libelle}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Véhicule
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={filtreVehicule}
+                    onChange={(e) => setFiltreVehicule(e.target.value)}
+                    aria-label="Filtrer par véhicule"
+                  >
+                    <option value="">Tous les véhicules</option>
+                    {vehicules.map((nom) => (
+                      <option key={nom} value={nom}>
+                        {nom}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Lieu de prise en charge
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={filtreLieu}
+                    onChange={(e) => setFiltreLieu(e.target.value)}
+                    aria-label="Filtrer par lieu de prise en charge"
+                  >
+                    <option value="">Tous les lieux</option>
+                    {lieux.map((nom) => (
+                      <option key={nom} value={nom}>
+                        {nom}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Départ à partir du
+                  </span>
+                  <input
+                    type="date"
+                    value={departDes}
+                    onChange={(e) => setDepartDes(e.target.value)}
+                    aria-label="Départ à partir du"
+                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Retour jusqu’au
+                  </span>
+                  <input
+                    type="date"
+                    value={retourJusqua}
+                    onChange={(e) => setRetourJusqua(e.target.value)}
+                    aria-label="Retour jusqu’au"
+                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Durée
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={dureeMin}
+                    onChange={(e) => setDureeMin(e.target.value as FiltreDureeMin)}
+                    aria-label="Filtrer par durée minimale"
+                  >
+                    <option value="">Toutes les durées</option>
+                    <option value="1">1 jour et plus</option>
+                    <option value="3">3 jours et plus</option>
+                    <option value="5">5 jours et plus</option>
+                    <option value="7">7 jours et plus</option>
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Montant
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={montantMin}
+                    onChange={(e) => setMontantMin(e.target.value as FiltreMontantMin)}
+                    aria-label="Filtrer par montant minimal"
+                  >
+                    <option value="">Tous les montants</option>
+                    <option value="50000">50 000 FCFA et plus</option>
+                    <option value="100000">100 000 FCFA et plus</option>
+                    <option value="200000">200 000 FCFA et plus</option>
+                    <option value="500000">500 000 FCFA et plus</option>
+                  </select>
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    Tri
+                  </span>
+                  <select
+                    className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+                    value={tri}
+                    onChange={(e) => setTri(e.target.value as TriReservations)}
+                    aria-label="Trier les réservations"
+                  >
+                    <option value="recent">Plus récentes</option>
+                    <option value="depart_asc">Départ le plus proche</option>
+                    <option value="depart_desc">Départ le plus lointain</option>
+                    <option value="duree_desc">Plus longues d’abord</option>
+                    <option value="duree_asc">Plus courtes d’abord</option>
+                    <option value="montant_desc">Montant décroissant</option>
+                    <option value="montant_asc">Montant croissant</option>
+                  </select>
+                </label>
+                {filtreActif && (
+                  <button
+                    type="button"
+                    onClick={reinitialiserFiltres}
+                    className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm font-medium text-ink-700 hover:bg-black/[0.03]"
+                  >
+                    Réinitialiser les filtres
+                  </button>
+                )}
               </>
             }
             surActualiser={charger}
-            chargement={chargement}
+            chargement={enChargement}
             messageVide="Aucune réservation ne correspond à ces filtres."
+            titreDetail={() => 'Détail de la réservation'}
+            sousTitreDetail={(b) => b.reference || undefined}
             renduDetail={(b) => {
               const cover = b.vehicle?.cover_url || b.vehicle?.media?.[0]?.url
               return (
@@ -531,14 +829,6 @@ export function MyBookingsPage() {
                         {libelleDuree(dureeJours(b))}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                        Partenaire
-                      </p>
-                      <p className="text-sm text-ink-800">
-                        {b.partner?.company_name || b.partner?.manager_name || '—'}
-                      </p>
-                    </div>
                     <div className="sm:col-span-2">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
                         Montant
@@ -547,42 +837,118 @@ export function MyBookingsPage() {
                         {formatXaf(b.total_amount)}
                       </p>
                     </div>
+                    {b.cancellation_reason && (
+                      <div className="sm:col-span-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                          Motif d’annulation
+                        </p>
+                        <p className="text-sm text-ink-800">{b.cancellation_reason}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
             }}
+            actions={(b) =>
+              peutAnnuler(b.status) ? (
+                <BoutonActionCrud
+                  variante="supprimer"
+                  libelle="Annuler la réservation"
+                  onClick={() => setAAnnuler(b)}
+                />
+              ) : b.status === 'cancelled' ? (
+                <BoutonActionCrud
+                  variante="supprimer"
+                  libelle="Supprimer définitivement"
+                  onClick={() => setASupprimer(b)}
+                />
+              ) : null
+            }
           />
         )}
-      </div>
-    </div>
+        <FenetreModale
+          ouvert={aAnnuler !== null}
+          titre="Annuler la réservation"
+          sousTitre={aAnnuler?.reference}
+          onFermer={() => {
+            if (!annulation) setAAnnuler(null)
+          }}
+        >
+          <p className="text-sm text-ink-700">
+            Cette demande est encore en cours de validation. L’annulation libère le véhicule sur
+            ces dates.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={annulation}
+              onClick={() => setAAnnuler(null)}
+              className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold"
+            >
+              Garder
+            </button>
+            <button
+              type="button"
+              disabled={annulation}
+              onClick={() => void confirmerAnnulation()}
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {annulation ? 'Annulation…' : 'Annuler'}
+            </button>
+          </div>
+        </FenetreModale>
+        <FenetreModale
+          ouvert={aSupprimer !== null}
+          titre="Supprimer définitivement"
+          sousTitre={aSupprimer?.reference}
+          onFermer={() => {
+            if (!suppression) setASupprimer(null)
+          }}
+        >
+          <p className="text-sm text-ink-700">
+            Cette réservation annulée disparaîtra de votre historique. La suppression est
+            irréversible.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={suppression}
+              onClick={() => setASupprimer(null)}
+              className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold"
+            >
+              Garder
+            </button>
+            <button
+              type="button"
+              disabled={suppression}
+              onClick={() => void confirmerSuppression()}
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {suppression ? 'Suppression…' : 'Supprimer'}
+            </button>
+          </div>
+        </FenetreModale>
+        {creationOuverte && (
+          <FenetreModale
+            ouvert
+            titre="Nouvelle réservation"
+            sousTitre="Choisissez vos dates et un véhicule disponible, puis continuez vers la confirmation."
+            onFermer={fermerCreation}
+            classePanneau="max-h-[90vh] w-full max-w-4xl"
+          >
+            {authLoading ? (
+              <ContentLoader label="Chargement du formulaire…" />
+            ) : (
+              <SearchForm espaceClient />
+            )}
+          </FenetreModale>
+        )}
+    </CoqueEspaceClient>
   )
 }
 
-const LIENS_ESPACE_CLIENT = [
-  {
-    to: '/#agences',
-    libelle: 'Agences de location',
-    description: 'Carte des provinces et points de retrait au Gabon.',
-  },
-  {
-    to: '/vehicules',
-    libelle: 'Véhicules',
-    description: 'Parcourir le catalogue et comparer les offres.',
-  },
-  {
-    to: '/devenir-partenaire',
-    libelle: 'Professionnels',
-    description: 'Devenir partenaire et publier vos véhicules.',
-  },
-  {
-    to: '/faq',
-    libelle: 'Aide',
-    description: 'Questions fréquentes et assistance.',
-  },
-]
-
 /**
- * Hub compte client : liens retirés de la navbar une fois connecté.
+ * Profil du réservateur : identité et déconnexion.
  */
 export function PageEspaceClient() {
   const { user, loading: authLoading, logout } = useAuth()
@@ -593,18 +959,7 @@ export function PageEspaceClient() {
     navigate('/', { replace: true })
   }
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
-        <div className="mx-auto max-w-5xl px-4 py-10">
-          <ContentLoader label="Chargement…" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
+  if (!authLoading && !user) {
     return (
       <Navigate
         to={`/connexion?redirect=${encodeURIComponent('/mes-reservations/espace')}`}
@@ -614,24 +969,24 @@ export function PageEspaceClient() {
   }
 
   return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <NavEspaceClient />
+    <CoqueEspaceClient>
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
             Espace client
           </p>
           <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
-            Mon compte
+            Mon Profil
           </h1>
           <p className="mt-1.5 text-sm text-ink-500">
-            Accédez au site, à l’aide et à vos informations de connexion.
+            Vos informations de connexion.
           </p>
         </div>
 
         <section className="mb-6 rounded-2xl border border-black/8 bg-white p-5 md:p-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Identité</h2>
+          {authLoading || !user ? (
+            <ContentLoader label="Chargement du profil…" className="justify-start py-6" />
+          ) : (
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-ink-500">Nom</dt>
@@ -648,27 +1003,7 @@ export function PageEspaceClient() {
               </div>
             )}
           </dl>
-        </section>
-
-        <section className="rounded-2xl border border-black/8 bg-white p-2">
-          <ul className="divide-y divide-black/6">
-            {LIENS_ESPACE_CLIENT.map((lien) => (
-              <li key={lien.to}>
-                <Link
-                  to={lien.to}
-                  className="flex items-start justify-between gap-4 rounded-xl px-4 py-3.5 transition hover:bg-black/[0.03]"
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-ink-900">{lien.libelle}</span>
-                    <span className="mt-0.5 block text-sm text-ink-500">{lien.description}</span>
-                  </span>
-                  <span aria-hidden className="mt-0.5 text-ink-300">
-                    →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          )}
         </section>
 
         <div className="mt-6">
@@ -680,54 +1015,12 @@ export function PageEspaceClient() {
             Déconnexion
           </button>
         </div>
-      </div>
-    </div>
+    </CoqueEspaceClient>
   )
 }
 
-/** Formulaire de nouvelle réservation dans l’espace client (hors hero du site). */
+/** L’ancienne page ouvre le même formulaire, dans le modal de Mes réservations. */
 export function PageNouvelleReservation() {
-  const { user, loading: authLoading } = useAuth()
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
-        <div className="mx-auto max-w-5xl px-4 py-10">
-          <ContentLoader label="Chargement…" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <Navigate
-        to={`/connexion?redirect=${encodeURIComponent('/mes-reservations/nouvelle')}`}
-        replace
-      />
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
-      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <NavEspaceClient />
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
-            Espace client
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-bold text-forest-950 md:text-4xl">
-            Nouvelle réservation
-          </h1>
-          <p className="mt-1.5 text-sm text-ink-500">
-            Choisissez vos dates et un véhicule disponible, puis continuez vers la confirmation.
-          </p>
-        </div>
-        <SearchForm espaceClient />
-      </div>
-    </div>
-  )
+  return <Navigate to="/mes-reservations?nouvelle=1" replace />
 }
 

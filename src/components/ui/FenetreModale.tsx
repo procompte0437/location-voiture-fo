@@ -3,7 +3,10 @@ import { useEffect, type ReactNode } from 'react'
 type PropsFenetreModale = {
   ouvert: boolean
   titre: string
+  sousTitre?: string
   onFermer: () => void
+  /** Classes du panneau, pour un formulaire large par exemple. */
+  classePanneau?: string
   /** Contenu du modal — prop React standard. */
   children: ReactNode
 }
@@ -13,32 +16,47 @@ type PropsFenetreModale = {
  * Les textes d’aide et les fiches (détail / modification) s’ouvrent ici
  * pour ne pas encombrer la page.
  */
-export function FenetreModale({ ouvert, titre, onFermer, children }: PropsFenetreModale) {
+export function FenetreModale({
+  ouvert,
+  titre,
+  sousTitre,
+  onFermer,
+  classePanneau = 'max-h-[min(80vh,40rem)] w-full max-w-lg',
+  children,
+}: PropsFenetreModale) {
   useEffect(() => {
     if (!ouvert) return
     function surEchap(evenement: KeyboardEvent) {
       if (evenement.key === 'Escape') onFermer()
     }
+    const debordement = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', surEchap)
-    return () => document.removeEventListener('keydown', surEchap)
+    return () => {
+      document.body.style.overflow = debordement
+      document.removeEventListener('keydown', surEchap)
+    }
   }, [ouvert, onFermer])
 
   if (!ouvert) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
       onClick={onFermer}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={titre}
-        className="max-h-[min(80vh,40rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className={`overflow-y-auto rounded-2xl bg-white p-6 shadow-xl ${classePanneau}`}
         onClick={(evenement) => evenement.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink-900">{titre}</h2>
+          <div>
+            <h2 className="font-display text-2xl font-bold text-ink-900">{titre}</h2>
+            {sousTitre && <p className="mt-1 text-sm text-ink-500">{sousTitre}</p>}
+          </div>
           <button
             type="button"
             onClick={onFermer}

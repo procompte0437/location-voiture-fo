@@ -1,3 +1,5 @@
+import { Apparition } from '../ui/Apparition'
+
 /** Trois arguments de confiance sous le hero (modèle comparateur). */
 export function BandeauConfiance() {
   const items = [
@@ -36,14 +38,14 @@ export function BandeauConfiance() {
   ]
 
   return (
-    <section className="border-b border-neutral-100 bg-white px-4 py-12 md:px-6 md:py-14">
+    <section className="relative z-0 border-b border-neutral-100 bg-white px-4 py-12 md:px-6 md:py-14">
       <div className="mx-auto grid max-w-6xl gap-10 sm:grid-cols-3 sm:gap-6">
-        {items.map((item) => (
-          <div key={item.titre} className="text-center">
+        {items.map((item, index) => (
+          <Apparition key={item.titre} delai={index * 90} className="text-center">
             {item.icone}
             <p className="mt-4 text-base font-bold text-neutral-900">{item.titre}</p>
             <p className="mt-1 text-sm text-neutral-500">{item.texte}</p>
-          </div>
+          </Apparition>
         ))}
       </div>
     </section>

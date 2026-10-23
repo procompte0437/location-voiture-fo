@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { CoqueSession } from '../components/layout/CoqueSession'
 import { PublicHeader } from '../components/layout/Header'
 import {
   BarreEtapesReservation,
@@ -8,7 +9,7 @@ import {
 } from '../components/reservation/BarreEtapesReservation'
 import { DateRangePicker } from '../components/search/DateRangePicker'
 import { DisponibilitesVehicule } from '../components/vehicles/DisponibilitesVehicule'
-import { ContentLoader } from '../components/ui/Spinner'
+import { ContentLoader, Spinner } from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { useCatalog } from '../context/CatalogContext'
 import api, { formatXaf } from '../lib/api'
@@ -17,6 +18,40 @@ import type { Vehicle } from '../types'
 function toLocalInput(date: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/** Même visuel que la recherche : la photo reste derrière le contenu, la navbar garde son fond sable. */
+const PHOTO_FOND =
+  'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=2200&q=80'
+
+function CoqueFicheVehicule({ children }: { children: ReactNode }) {
+  const contenu = (
+    <div className="relative min-h-[calc(100vh-5.5rem)]">
+      <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: `linear-gradient(180deg, rgba(247,244,239,0.62) 0%, rgba(247,244,239,0.78) 100%), url('${PHOTO_FOND}')`,
+        }}
+        aria-hidden
+      />
+      <div className="relative">{children}</div>
+    </div>
+  )
+
+  return (
+    <CoqueSession
+      visiteur={
+        <div className="min-h-screen bg-sand-50">
+          <div className="relative z-20 bg-sand-50 text-marque-encre">
+            <PublicHeader />
+          </div>
+          {contenu}
+        </div>
+      }
+    >
+      {contenu}
+    </CoqueSession>
+  )
 }
 
 const HORAIRES_AGENCE = [
@@ -56,31 +91,84 @@ function datesParDefaut() {
   return { pickup: toLocalInput(pickup), return: toLocalInput(ret) }
 }
 
+type Invite = {
+  civilite: string
+  prenom: string
+  nom: string
+  email: string
+  phone: string
+}
+
+const INVITE_VIDE: Invite = { civilite: 'M.', prenom: '', nom: '', email: '', phone: '' }
+
+/** Étapes tenues sur la fiche. Recherche est une autre page : on n’y renvoie pas au rechargement. */
+const ETAPES_FICHE: EtapeReservation[] = ['conducteur', 'reservation', 'protection', 'paiement']
+
+function etapeValide(valeur: string | null): EtapeReservation | null {
+  if (valeur && ETAPES_FICHE.includes(valeur as EtapeReservation)) return valeur as EtapeReservation
+  return null
+}
+
+function normaliserInvite(valeur: unknown): Invite {
+  if (!valeur || typeof valeur !== 'object') return { ...INVITE_VIDE }
+  const brut = valeur as Partial<Invite>
+  return {
+    civilite: typeof brut.civilite === 'string' && brut.civilite ? brut.civilite : 'M.',
+    prenom: typeof brut.prenom === 'string' ? brut.prenom : '',
+    nom: typeof brut.nom === 'string' ? brut.nom : '',
+    email: typeof brut.email === 'string' ? brut.email : '',
+    phone: typeof brut.phone === 'string' ? brut.phone : '',
+  }
+}
+
+function cleParcours(vehiculeId: string) {
+  return `locagabon_parcours_${vehiculeId}`
+}
+
+/** Conducteur, protection et moyen de paiement : repris après actualisation, avec l’étape dans l’URL. */
+function lireBrouillon(vehiculeId: string | undefined) {
+  if (!vehiculeId) return null
+  try {
+    const brut = sessionStorage.getItem(cleParcours(vehiculeId))
+    if (!brut) return null
+    const data = JSON.parse(brut) as {
+      guest?: unknown
+      protegeFranchise?: unknown
+      method?: unknown
+    }
+    return {
+      guest: normaliserInvite(data.guest),
+      protegeFranchise: data.protegeFranchise === true,
+      method: typeof data.method === 'string' ? data.method : '',
+    }
+  } catch {
+    return null
+  }
+}
+
 export function VehicleDetailPage() {
   const { id } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { fuelLabel, transmissionLabel, labels } = useCatalog()
+  const { fuelLabel, transmissionLabel } = useCatalog()
   const [vehicle, setVehicle] = useState<Vehicle | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [chargementFiche, setChargementFiche] = useState(true)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
   const [disponible, setDisponible] = useState<boolean | null>(null)
-  const [guest, setGuest] = useState({
-    civilite: 'M.',
-    prenom: '',
-    nom: '',
-    email: '',
-    phone: '',
-  })
-  const [etape, setEtape] = useState<EtapeReservation>('conducteur')
+  const brouillonInitial = useState(() => lireBrouillon(id))[0]
+  const [guest, setGuest] = useState<Invite>(brouillonInitial?.guest ?? { ...INVITE_VIDE })
+  /** L’étape est dans l’URL : un rafraîchissement reste sur Réservation, Protection ou Demande. */
+  const etape = etapeValide(searchParams.get('etape')) ?? 'conducteur'
   const [erreurConducteur, setErreurConducteur] = useState('')
-  const [protegeFranchise, setProtegeFranchise] = useState(false)
+  const [protegeFranchise, setProtegeFranchise] = useState(brouillonInitial?.protegeFranchise ?? false)
   const [rappelAssurance, setRappelAssurance] = useState(false)
   const [horairesOuverts, setHorairesOuverts] = useState<'depart' | 'retour' | null>(null)
-  const [method, setMethod] = useState('airtel_money')
+  const [method, setMethod] = useState(brouillonInitial?.method || '')
+  const vehiculeBrouillon = useRef(id)
   const [moyensPaiement, setMoyensPaiement] = useState<{ slug: string; label: string }[]>([])
+  const [chargementMoyens, setChargementMoyens] = useState(true)
   const [agesConducteur, setAgesConducteur] = useState<{ slug: string; label: string }[]>([])
 
   const defauts = useMemo(() => datesParDefaut(), [])
@@ -103,6 +191,12 @@ export function VehicleDetailPage() {
     setSearchParams(next, { replace: true })
   }
 
+  function changerEtape(suivante: EtapeReservation) {
+    const next = new URLSearchParams(searchParams)
+    next.set('etape', suivante)
+    setSearchParams(next, { replace: true })
+  }
+
   // Initialise les dates dans l’URL si absentes (arrivée depuis le catalogue).
   useEffect(() => {
     if (searchParams.get('pickup_at') && searchParams.get('return_at')) return
@@ -114,6 +208,27 @@ export function VehicleDetailPage() {
     // Une seule fois à l’arrivée sur la fiche.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!id || vehiculeBrouillon.current !== id) return
+    try {
+      sessionStorage.setItem(
+        cleParcours(id),
+        JSON.stringify({ guest, protegeFranchise, method }),
+      )
+    } catch {
+      // Session pleine : l’étape affichée reste quand même dans l’URL.
+    }
+  }, [id, guest, protegeFranchise, method])
+
+  useEffect(() => {
+    if (vehiculeBrouillon.current === id) return
+    vehiculeBrouillon.current = id
+    const brouillon = lireBrouillon(id)
+    setGuest(brouillon?.guest ?? { ...INVITE_VIDE })
+    setProtegeFranchise(brouillon?.protegeFranchise ?? false)
+    setMethod(brouillon?.method || '')
+  }, [id])
 
   useEffect(() => {
     void api
@@ -143,7 +258,7 @@ export function VehicleDetailPage() {
     void api
       .get(`/vehicles/${id}`)
       .then(({ data }) => setVehicle(data.data))
-      .finally(() => setLoading(false))
+      .finally(() => setChargementFiche(false))
   }, [id])
 
   useEffect(() => {
@@ -172,39 +287,31 @@ export function VehicleDetailPage() {
   }, [id, pickupAt, returnAt])
 
   useEffect(() => {
+    // Uniquement les moyens actifs du référentiel admin (pas de liste figée).
+    let annule = false
+    setChargementMoyens(true)
     void api
       .get('/catalog/references', { params: { type: 'payment_method' } })
       .then(({ data }) => {
-        const liste = (data.data || []) as { slug: string; label: string }[]
-        if (liste.length) {
-          setMoyensPaiement(liste)
-          setMethod((m) => (liste.some((x) => x.slug === m) ? m : liste[0].slug))
-        } else {
-          const fallback = Object.entries(labels.payment_method || {}).map(([slug, label]) => ({
-            slug,
-            label,
-          }))
-          setMoyensPaiement(
-            fallback.length
-              ? fallback
-              : [
-                  { slug: 'airtel_money', label: 'Airtel Money' },
-                  { slug: 'moov_money', label: 'Moov Money' },
-                  { slug: 'card', label: 'Carte bancaire' },
-                  { slug: 'agency_cash', label: 'Acompte + paiement agence' },
-                ],
-          )
-        }
+        if (annule) return
+        const liste = ((data.data || []) as { slug: string; label: string }[]).filter(
+          (moyen) => moyen.slug && moyen.label,
+        )
+        setMoyensPaiement(liste)
+        setMethod((actuel) => (liste.some((moyen) => moyen.slug === actuel) ? actuel : liste[0]?.slug || ''))
       })
       .catch(() => {
-        setMoyensPaiement([
-          { slug: 'airtel_money', label: 'Airtel Money' },
-          { slug: 'moov_money', label: 'Moov Money' },
-          { slug: 'card', label: 'Carte bancaire' },
-          { slug: 'agency_cash', label: 'Acompte + paiement agence' },
-        ])
+        if (annule) return
+        setMoyensPaiement([])
+        setMethod('')
       })
-  }, [labels.payment_method])
+      .finally(() => {
+        if (!annule) setChargementMoyens(false)
+      })
+    return () => {
+      annule = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -232,6 +339,7 @@ export function VehicleDetailPage() {
         guest_name: `${guest.civilite} ${guest.prenom} ${guest.nom}`.trim() || undefined,
         guest_email: guest.email || undefined,
         guest_phone: guest.phone || undefined,
+        payment_method: method,
       })
       const meta = bookingRes.meta as
         | {
@@ -263,6 +371,7 @@ export function VehicleDetailPage() {
       } catch {
         // ignore
       }
+      if (id) sessionStorage.removeItem(cleParcours(id))
       navigate(`/confirmation/${bookingId}`, { state: confirmationState })
     } catch (err: unknown) {
       const msg =
@@ -285,7 +394,7 @@ export function VehicleDetailPage() {
       return
     }
     setErreurConducteur('')
-    setEtape('reservation')
+    changerEtape('reservation')
   }
 
   function allerEtape(id: EtapeReservation) {
@@ -300,7 +409,7 @@ export function VehicleDetailPage() {
       navigate(`/recherche?${qs.toString()}`)
       return
     }
-    setEtape(id)
+    changerEtape(id)
   }
 
   function onBook(e: FormEvent) {
@@ -311,6 +420,10 @@ export function VehicleDetailPage() {
     }
     if (etape !== 'paiement') return
     if (!vehicle) return
+    if (!method) {
+      setError('Aucun moyen de paiement n’est disponible.')
+      return
+    }
     if (!pickupAt || !returnAt) {
       setError('Choisissez une plage de dates pour réserver.')
       return
@@ -322,25 +435,13 @@ export function VehicleDetailPage() {
     void payerMaintenant()
   }
 
-  if (loading) {
+  // Actualiser ne masque pas la page : le spinner reste dans les blocs
+  // qui attendent la fiche (photo, tarif, conditions), pas sur l’ensemble.
+  if (!chargementFiche && !vehicle) {
     return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
-        <div className="mx-auto max-w-6xl px-4 py-8">
-          <div className="rounded-2xl border border-sand-200 bg-white">
-            <ContentLoader />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!vehicle) {
-    return (
-      <div className="min-h-screen bg-sand-50">
-        <PublicHeader />
+      <CoqueFicheVehicule>
         <p className="p-8">Véhicule introuvable.</p>
-      </div>
+      </CoqueFicheVehicule>
     )
   }
 
@@ -348,10 +449,10 @@ export function VehicleDetailPage() {
     pickupAt && returnAt
       ? Math.max(1, Math.ceil((new Date(returnAt).getTime() - new Date(pickupAt).getTime()) / 86400000))
       : null
-  const total = days ? days * vehicle.price_per_day : null
+  const total = vehicle && days ? days * vehicle.price_per_day : null
   const depart = formaterMoment(pickupAt)
   const retour = formaterMoment(returnAt)
-  const lieu = lieuLabel || vehicle.agency?.name || vehicle.partner.city || 'Agence partenaire'
+  const lieu = lieuLabel || vehicle?.agency?.name || vehicle?.partner?.city || 'Agence partenaire'
   const champ = 'w-full rounded-md border border-sand-200 px-3 py-2.5 text-sm'
 
   function blocHoraires(cle: 'depart' | 'retour', indice: number) {
@@ -386,28 +487,30 @@ export function VehicleDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-sand-50">
-      <PublicHeader />
+    <CoqueFicheVehicule>
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[280px_1fr] md:px-6">
         <aside className="h-fit rounded-xl border border-sand-200 bg-white p-4">
-          <img
-            src={vehicle.cover_url || ''}
-            alt={vehicle.display_name}
-            className="aspect-[16/10] w-full rounded-md object-cover"
-          />
-          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-forest-700">
-            {vehicle.partner.name}
-          </p>
-          <h1 className="font-display text-2xl font-bold text-forest-950">{vehicle.display_name}</h1>
-          <p className="text-sm text-ink-500">ou véhicule similaire · {vehicle.category_label || vehicle.category}</p>
-          <p className="mt-3 flex flex-wrap gap-2 text-xs text-ink-700">
-            <span>{vehicle.seats} places</span>
-            <span>{vehicle.doors} portes</span>
-            <span>{transmissionLabel(vehicle.transmission)}</span>
-          </p>
-          <p className="mt-2 text-sm text-forest-800">
-            Politique carburant : {libelleCarburant(vehicle.fuel_policy)}
-          </p>
+          {vehicle ? (
+            <>
+              <img
+                src={vehicle.cover_url || ''}
+                alt={vehicle.display_name}
+                className="aspect-[16/10] w-full rounded-md object-cover"
+              />
+              <h1 className="mt-3 font-display text-2xl font-bold text-forest-950">{vehicle.display_name}</h1>
+              <p className="text-sm text-ink-500">ou véhicule similaire · {vehicle.category_label || vehicle.category}</p>
+              <p className="mt-3 flex flex-wrap gap-2 text-xs text-ink-700">
+                <span>{vehicle.seats} places</span>
+                <span>{vehicle.doors} portes</span>
+                <span>{transmissionLabel(vehicle.transmission)}</span>
+              </p>
+              <p className="mt-2 text-sm text-forest-800">
+                Politique carburant : {libelleCarburant(vehicle.fuel_policy)}
+              </p>
+            </>
+          ) : (
+            <ContentLoader label="Chargement du véhicule…" className="py-12" />
+          )}
           {etape !== 'conducteur' && (
             <>
               <div className="mt-4 border-t border-sand-200 pt-3 text-sm">
@@ -427,7 +530,10 @@ export function VehicleDetailPage() {
                     Location <span className="float-right font-bold">{formatXaf(total)}</span>
                   </p>
                   <p className="mt-1 text-sm">
-                    Caution <span className="float-right">{formatXaf(vehicle.deposit_amount)}</span>
+                    Caution{' '}
+                    <span className="float-right">
+                      {vehicle ? formatXaf(vehicle.deposit_amount) : <Spinner className="h-4 w-4" />}
+                    </span>
                   </p>
                   <p className="mt-2 text-xs text-ink-500">
                     Journée = tranche de 24 h commencée. La caution n’est pas comprise dans le prix.
@@ -463,6 +569,7 @@ export function VehicleDetailPage() {
                   onChange={(e) => majParametre('driver_age', e.target.value)}
                   className={`mt-1 ${champ}`}
                 >
+                  {agesConducteur.length === 0 && <option value={driverAge}>Chargement…</option>}
                   {agesConducteur.map((a) => (
                     <option key={a.slug} value={Number(a.slug)}>
                       {a.label}
@@ -548,27 +655,33 @@ export function VehicleDetailPage() {
             </div>
             <div className="mt-4 flex justify-between border-t border-sand-100 pt-3 text-sm">
               <span>Location de voiture</span>
-              <span className="font-semibold">{total != null ? formatXaf(total) : '—'}</span>
+              <span className="font-semibold">
+                {!vehicle ? <Spinner className="h-4 w-4" /> : total != null ? formatXaf(total) : '—'}
+              </span>
             </div>
             <div className="mt-1 flex justify-between text-sm">
               <span>Caution (franchise)</span>
-              <span>{formatXaf(vehicle.deposit_amount)}</span>
+              <span>{vehicle ? formatXaf(vehicle.deposit_amount) : <Spinner className="h-4 w-4" />}</span>
             </div>
             <div className="mt-3">
-              <DisponibilitesVehicule calendrier={vehicle.calendar} disponible={disponible} />
+              {vehicle ? (
+                <DisponibilitesVehicule calendrier={vehicle.calendar} disponible={disponible} />
+              ) : (
+                <ContentLoader label="Chargement des disponibilités…" className="py-4" />
+              )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setEtape('conducteur')}
+                onClick={() => changerEtape('conducteur')}
                 className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
               >
                 Retour
               </button>
               <button
                 type="button"
-                onClick={() => setEtape('protection')}
-                disabled={disponible === false}
+                onClick={() => changerEtape('protection')}
+                disabled={disponible === false || !vehicle}
                 className="rounded-md bg-forest-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 Continuer
@@ -579,36 +692,66 @@ export function VehicleDetailPage() {
           <details className="group rounded-xl border border-sand-200 bg-white">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-semibold text-forest-950 [&::-webkit-details-marker]:hidden">
               Inclus dans le prix et conseils
-              <span className="text-sm text-ink-500 group-open:hidden" aria-hidden>
-                Déplier
+              <span className="inline-flex text-ink-500" aria-hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 transition-transform group-open:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                >
+                  <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </span>
-              <span className="hidden text-sm text-ink-500 group-open:inline" aria-hidden>
-                Plier
-              </span>
+              <span className="sr-only group-open:hidden">Déplier</span>
+              <span className="sr-only hidden group-open:inline">Plier</span>
             </summary>
             <div className="space-y-5 border-t border-sand-100 px-5 py-4">
               <div>
                 <h2 className="font-semibold">Inclus dans le prix</h2>
                 <ul className="mt-3 grid gap-2 text-sm text-ink-800 sm:grid-cols-2">
                   <li>✓ Prix annoncé en FCFA, sans frais cachés</li>
-                  <li>✓ {vehicle.free_cancellation ? 'Annulation gratuite' : 'Annulation selon le partenaire'}</li>
-                  <li>✓ Carburant : {libelleCarburant(vehicle.fuel_policy)}</li>
-                  <li>✓ {fuelLabel(vehicle.fuel)} · {transmissionLabel(vehicle.transmission)}</li>
-                  {vehicle.air_conditioning && <li>✓ Climatisation</li>}
-                  <li>✓ {vehicle.airport_delivery ? 'Livraison aéroport possible' : 'Retrait en agence'}</li>
-                  <li>✓ Paiement Airtel Money, Moov Money ou carte</li>
+                  {vehicle ? (
+                    <>
+                      <li>✓ {vehicle.free_cancellation ? 'Annulation gratuite' : 'Annulation selon le partenaire'}</li>
+                      <li>✓ Carburant : {libelleCarburant(vehicle.fuel_policy)}</li>
+                      <li>✓ {fuelLabel(vehicle.fuel)} · {transmissionLabel(vehicle.transmission)}</li>
+                      {vehicle.air_conditioning && <li>✓ Climatisation</li>}
+                      <li>✓ {vehicle.airport_delivery ? 'Livraison aéroport possible' : 'Retrait en agence'}</li>
+                    </>
+                  ) : (
+                    <li className="sm:col-span-2">
+                      <ContentLoader label="Chargement des conditions…" className="justify-start py-2" />
+                    </li>
+                  )}
+                  {!chargementMoyens && moyensPaiement.length > 0 && (
+                    <li>✓ Paiement : {moyensPaiement.map((moyen) => moyen.label).join(', ')}</li>
+                  )}
+                  {chargementMoyens && (
+                    <li className="sm:col-span-2">
+                      <ContentLoader label="Chargement des moyens de paiement…" className="justify-start py-2" />
+                    </li>
+                  )}
                 </ul>
               </div>
               <div className="text-sm text-ink-800">
                 <h2 className="font-semibold text-neutral-950">Conseils avant de partir</h2>
                 <ul className="mt-3 space-y-2">
                   <li>✓ Le lieu de retrait est indiqué avant la confirmation.</li>
-                  <li>✓ Âge minimum du conducteur : {vehicle.min_driver_age} ans, permis en cours de validité.</li>
-                  <li>
-                    ✓ {vehicle.booking_mode === 'instant'
-                      ? 'Réservation instantanée chez ce partenaire.'
-                      : 'Le partenaire confirme la demande avant le départ.'}
-                  </li>
+                  {vehicle ? (
+                    <>
+                      <li>✓ Âge minimum du conducteur : {vehicle.min_driver_age} ans, permis en cours de validité.</li>
+                      <li>
+                        ✓ {vehicle.booking_mode === 'instant'
+                          ? 'Réservation instantanée chez ce partenaire.'
+                          : 'Le partenaire confirme la demande avant le départ.'}
+                      </li>
+                    </>
+                  ) : (
+                    <li>
+                      <ContentLoader label="Chargement des conseils…" className="justify-start py-2" />
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -621,7 +764,7 @@ export function VehicleDetailPage() {
             <h2 className="font-semibold">Protection de la franchise</h2>
             <p className="mt-2 text-sm text-ink-700">
               Sans protection, vous restez responsable des dommages à hauteur de la caution de{' '}
-              {formatXaf(vehicle.deposit_amount)}, généralement bloquée à la remise des clés.
+              {vehicle ? formatXaf(vehicle.deposit_amount) : <Spinner className="inline-block h-4 w-4 align-middle" />}, généralement bloquée à la remise des clés.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <button
@@ -633,7 +776,9 @@ export function VehicleDetailPage() {
               >
                 <p className="font-semibold">Sans protection</p>
                 <p className="mt-2 text-ink-600">Vous assumez la caution en cas de dommage.</p>
-                <p className="mt-3 font-bold">{total != null ? formatXaf(total) : ''}</p>
+                <p className="mt-3 font-bold">
+                  {!vehicle ? <Spinner className="h-4 w-4" /> : total != null ? formatXaf(total) : ''}
+                </p>
                 <p className="text-xs text-ink-500">Prix de la location, hors caution</p>
               </button>
               <button
@@ -647,20 +792,22 @@ export function VehicleDetailPage() {
                 <p className="mt-2 text-ink-600">
                   À demander au partenaire à la prise du véhicule. Le paiement en ligne reste celui de la location.
                 </p>
-                <p className="mt-3 font-bold">Caution {formatXaf(vehicle.deposit_amount)}</p>
+                <p className="mt-3 font-bold">
+                  Caution {vehicle ? formatXaf(vehicle.deposit_amount) : <Spinner className="inline-block h-4 w-4 align-middle" />}
+                </p>
               </button>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setEtape('reservation')}
+                onClick={() => changerEtape('reservation')}
                 className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
               >
                 Retour
               </button>
               <button
                 type="button"
-                onClick={() => setEtape('paiement')}
+                onClick={() => changerEtape('paiement')}
                 className="rounded-md bg-forest-700 px-5 py-2.5 text-sm font-semibold text-white"
               >
                 Continuer
@@ -682,8 +829,13 @@ export function VehicleDetailPage() {
               <select
                 value={method}
                 onChange={(e) => setMethod(e.target.value)}
+                disabled={chargementMoyens || moyensPaiement.length === 0}
                 className={`mt-1 ${champ}`}
               >
+                {chargementMoyens && <option value="">Chargement…</option>}
+                {!chargementMoyens && moyensPaiement.length === 0 && (
+                  <option value="">Aucun moyen configuré</option>
+                )}
                 {moyensPaiement.map((m) => (
                   <option key={m.slug} value={m.slug}>
                     {m.label}
@@ -691,6 +843,11 @@ export function VehicleDetailPage() {
                 ))}
               </select>
             </label>
+            {!chargementMoyens && moyensPaiement.length === 0 && (
+              <p className="mt-2 text-sm text-red-700">
+                Aucun moyen de paiement n’est activé pour le moment.
+              </p>
+            )}
             <p className="mt-2 text-sm text-ink-600">
               Indiquez comment vous réglerez le loueur. Ce choix ne déclenche aucun débit.
             </p>
@@ -701,22 +858,26 @@ export function VehicleDetailPage() {
               </div>
             </details>
             {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-            {vehicle.description && <p className="mt-4 text-sm text-ink-600">{vehicle.description}</p>}
+            {vehicle?.description ? (
+              <p className="mt-4 text-sm text-ink-600">{vehicle.description}</p>
+            ) : null}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setEtape('protection')}
+                onClick={() => changerEtape('protection')}
                 className="rounded-md border border-sand-200 px-4 py-2.5 text-sm font-semibold"
               >
                 Retour
               </button>
               <button
                 type="submit"
-                disabled={paying || !pickupAt || disponible === false}
+                disabled={paying || !pickupAt || disponible === false || !method}
                 className="flex flex-1 items-center justify-between bg-forest-700 px-4 py-3 font-bold text-white disabled:opacity-50"
               >
                 <span>{paying ? 'Envoi…' : 'Transmettre la demande'}</span>
-                <span>{total != null ? formatXaf(total) : ''}</span>
+                <span>
+                  {!vehicle ? <Spinner className="h-4 w-4" /> : total != null ? formatXaf(total) : ''}
+                </span>
               </button>
             </div>
           </section>
@@ -730,7 +891,7 @@ export function VehicleDetailPage() {
             <h2 className="text-lg font-bold">Attendez</h2>
             <p className="mt-2 text-sm text-ink-700">
               Le prix de la location est déjà affiché. Sans protection, la caution de{' '}
-              {formatXaf(vehicle.deposit_amount)} reste à votre charge en cas de dommage.
+              {vehicle ? formatXaf(vehicle.deposit_amount) : '—'} reste à votre charge en cas de dommage.
             </p>
             <div className="mt-5 flex flex-col gap-2">
               <button
@@ -754,6 +915,6 @@ export function VehicleDetailPage() {
           </div>
         </div>
       )}
-    </div>
+    </CoqueFicheVehicule>
   )
 }

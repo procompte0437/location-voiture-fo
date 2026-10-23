@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { CatalogProvider } from './context/CatalogContext'
 import { HomePage } from './pages/HomePage'
@@ -41,6 +41,7 @@ import {
   AdminLocationsPage,
 } from './pages/admin/AdminManagePages'
 import { AdminAgencesPage } from './pages/admin/AdminAgencesPage'
+import { PageEvaluationPartenaires } from './pages/admin/PageEvaluationPartenaires'
 import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
 import {
   AdminVehicleCreatePage,
@@ -56,12 +57,12 @@ import {
   PagePlanDuSite,
 } from './pages/PagesInstitutionnelles'
 
-export default function App() {
+/** Relance un fondu à chaque changement de page, pour que la navigation ne soit pas un saut. */
+function PagesFluides() {
+  const location = useLocation()
   return (
-    <AuthProvider>
-      <CatalogProvider>
-      <BrowserRouter>
-        <Routes>
+    <div key={location.pathname} className="entree-page">
+      <Routes location={location}>
           <Route path="/" element={<HomePage />} />
           <Route path="/recherche" element={<SearchPage />} />
           <Route path="/vehicules" element={<SearchPage />} />
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
             <Route path="validation" element={<AdminValidationPage />} />
+            <Route path="evaluation" element={<PageEvaluationPartenaires />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="lieux" element={<AdminLocationsPage />} />
             <Route path="comptes" element={<AdminAccountsPage />} />
@@ -114,6 +116,16 @@ export default function App() {
           <Route path="/contact" element={<PageContact />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+    </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <CatalogProvider>
+      <BrowserRouter>
+        <PagesFluides />
       </BrowserRouter>
       </CatalogProvider>
     </AuthProvider>

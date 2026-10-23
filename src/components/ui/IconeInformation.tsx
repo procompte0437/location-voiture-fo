@@ -21,7 +21,7 @@ export function IconeInformation({ titre, children }: PropsIconeInformation) {
         onClick={() => setOuvert(true)}
         aria-label={titre}
         title={titre}
-        className="inline-grid h-5 w-5 shrink-0 place-items-center rounded-full border border-ink-400 text-[11px] font-semibold italic leading-none text-ink-600 hover:border-[#0b3d2e] hover:text-[#0b3d2e]"
+        className="inline-grid h-5 w-5 shrink-0 place-items-center rounded-full border border-ink-400 text-[11px] font-semibold italic leading-none text-ink-600 hover:border-[#8c4205] hover:text-[#8c4205]"
       >
         i
       </button>

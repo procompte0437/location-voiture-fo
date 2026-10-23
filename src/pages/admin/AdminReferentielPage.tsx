@@ -463,7 +463,7 @@ export function AdminReferentielPage() {
             onClick={() => changerOnglet(type)}
             className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
               ongletActif === type
-                ? 'bg-[#0b3d2e] text-white'
+                ? 'bg-[#8c4205] text-white'
                 : 'border border-black/10 bg-white text-ink-700 hover:bg-[#f4f5f4]'
             }`}
           >
@@ -503,7 +503,7 @@ export function AdminReferentielPage() {
             />
             <button
               type="submit"
-              className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 font-semibold text-white hover:bg-[#0a3427]"
+              className="rounded-xl bg-[#8c4205] px-4 py-2.5 font-semibold text-white hover:bg-[#733806]"
             >
               Ajouter
             </button>
@@ -623,7 +623,7 @@ export function AdminReferentielPage() {
               }
               className="rounded-xl border border-black/10 px-3 py-2.5"
             />
-            <button type="submit" className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 font-semibold text-white">
+            <button type="submit" className="rounded-xl bg-[#8c4205] px-4 py-2.5 font-semibold text-white">
               Ajouter
             </button>
           </form>
@@ -791,7 +791,7 @@ export function AdminReferentielPage() {
             <div className="flex items-end">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white"
+                className="w-full rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white"
               >
                 Ajouter
               </button>
@@ -1035,7 +1035,7 @@ export function AdminReferentielPage() {
             <button
               type="submit"
               disabled={enregistrement}
-              className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
               {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
             </button>
@@ -1115,7 +1115,7 @@ function CaseCochee({
         type="checkbox"
         checked={coche}
         onChange={(evenement) => onChange(evenement.target.checked)}
-        className="h-4 w-4 accent-[#0b3d2e]"
+        className="h-4 w-4 accent-[#8c4205]"
       />
       {libelle}
     </label>
@@ -1140,7 +1140,7 @@ function Pastille({
       onClick={onClick}
       title={actif ? `Passer à « ${libelleInactif} »` : `Passer à « ${libelleActif} »`}
       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-        actif ? 'bg-[#0b3d2e]/10 text-[#0b3d2e]' : 'bg-[#f0f1f0] text-ink-500'
+        actif ? 'bg-[#8c4205]/10 text-[#8c4205]' : 'bg-[#f0f1f0] text-ink-500'
       }`}
     >
       {actif ? libelleActif : libelleInactif}

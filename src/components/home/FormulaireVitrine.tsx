@@ -2,12 +2,27 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CalendrierPlage } from '../search/CalendrierPlage'
 import { EcranTransitionRecherche } from './EcranTransitionRecherche'
+import { Spinner } from '../ui/Spinner'
 import api from '../../lib/api'
 import type { Location } from '../../types'
 
 type ResumeDisponibilite = {
   disponibles: number
   categories: { slug: string; libelle: string; disponibles: number }[]
+  marques: { nom: string; disponibles: number }[]
+}
+
+/** Lieu prérempli avec la plage : Libreville Centre, sinon le premier lieu populaire. */
+function lieuParDefaut(liste: Location[]) {
+  return (
+    liste.find((lieu) => /centre/i.test(lieu.name) && /libreville/i.test(`${lieu.name} ${lieu.city || ''}`)) ||
+    liste.find((lieu) => /libreville/i.test(`${lieu.name} ${lieu.city || ''}`)) ||
+    liste[0]
+  )
+}
+
+function libelleLieu(lieu: Location) {
+  return lieu.city ? `${lieu.name} — ${lieu.city}` : lieu.name
 }
 
 /** Évite un second appel au tout premier affichage (React rappelle le rendu). */
@@ -31,10 +46,10 @@ function ResumePlage({
   chargement: boolean
   resume: ResumeDisponibilite | null
 }) {
-  if (chargement && !resume) {
+  if (chargement) {
     return (
       <p className="mt-3 flex items-center gap-2 text-sm text-white/80">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        <Spinner className="h-4 w-4 border-white/30 border-t-white" />
         Calcul des véhicules disponibles…
       </p>
     )
@@ -51,18 +66,14 @@ function ResumePlage({
           ? 'Aucun véhicule disponible sur cette plage.'
           : `${resume.disponibles} véhicule${resume.disponibles > 1 ? 's' : ''} disponible${resume.disponibles > 1 ? 's' : ''} sur cette plage.`}
       </p>
-      {resume.categories.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-2">
-          {resume.categories.map((categorie) => (
+      {(resume.marques || []).length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-2" aria-label="Marques disponibles">
+          {(resume.marques || []).map((marque) => (
             <li
-              key={categorie.slug}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                categorie.disponibles === 0
-                  ? 'bg-white/10 text-white/50'
-                  : 'bg-white text-neutral-900'
-              }`}
+              key={marque.nom}
+              className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-neutral-900"
             >
-              {categorie.libelle} · {categorie.disponibles}
+              {marque.nom} · {marque.disponibles}
             </li>
           ))}
         </ul>
@@ -114,6 +125,8 @@ export function FormulaireVitrine() {
   const [params] = useSearchParams()
   const blocLieu = useRef<HTMLDivElement>(null)
   const [lieux, setLieux] = useState<Location[]>([])
+  const [chargementLieux, setChargementLieux] = useState(true)
+  const [lieuxPrets, setLieuxPrets] = useState(false)
   const [texteLieu, setTexteLieu] = useState('')
   const [locationId, setLocationId] = useState<string | number>('')
   const [memeLieu, setMemeLieu] = useState(true)
@@ -125,6 +138,8 @@ export function FormulaireVitrine() {
   const [ageStandard, setAgeStandard] = useState(true)
   const [ageSaisi, setAgeSaisi] = useState('21')
   const [listeOuverte, setListeOuverte] = useState(false)
+  /** Clic sur le champ : toute la liste, sans effacer le lieu déjà choisi. */
+  const [listeComplete, setListeComplete] = useState(false)
   const [calendrierOuvert, setCalendrierOuvert] = useState(false)
   const [enTransition, setEnTransition] = useState(false)
   const [erreur, setErreur] = useState('')
@@ -134,7 +149,21 @@ export function FormulaireVitrine() {
 
   useEffect(() => {
     const delai = window.setTimeout(() => {
-      void api.get('/locations/popular').then(({ data }) => setLieux(data.data || []))
+      void api
+        .get('/locations/popular')
+        .then(({ data }) => {
+          const liste = (data.data || []) as Location[]
+          setLieux(liste)
+          const defaut = lieuParDefaut(liste)
+          if (defaut) {
+            setLocationId(defaut.id)
+            setTexteLieu(libelleLieu(defaut))
+          }
+        })
+        .finally(() => {
+          setChargementLieux(false)
+          setLieuxPrets(true)
+        })
     }, 0)
     return () => window.clearTimeout(delai)
   }, [])
@@ -170,7 +199,7 @@ export function FormulaireVitrine() {
   })()
 
   // Avant les useEffect du reste de la page : le serveur PHP local ne traite qu’une requête à la fois.
-  if (plageValide && cleDisponibiliteLancee === '') {
+  if (plageValide && lieuxPrets && cleDisponibiliteLancee === '') {
     const controleInitial = new AbortController()
     const promesse = lancerDisponibilite(cleDispo, parametresDispo, controleInitial.signal)
     void promesse
@@ -184,6 +213,7 @@ export function FormulaireVitrine() {
 
   // Dès que la plage change, on recalcule sans relancer le premier appel déjà parti.
   useEffect(() => {
+    if (!lieuxPrets) return
     if (!plageValide) {
       setResumeDispo(null)
       setChargementDispo(false)
@@ -210,7 +240,7 @@ export function FormulaireVitrine() {
       window.clearTimeout(delai)
       controle.abort()
     }
-  }, [cleDispo, plageValide, parametresDispo.pickup_at, parametresDispo.return_at, parametresDispo.location_id, parametresDispo.driver_age])
+  }, [cleDispo, plageValide, lieuxPrets, parametresDispo.pickup_at, parametresDispo.return_at, parametresDispo.location_id, parametresDispo.driver_age])
 
   const dureeJours = useMemo(() => {
     const depart = new Date(combiner(dateDepart, heureDepart))
@@ -220,15 +250,27 @@ export function FormulaireVitrine() {
   }, [dateDepart, heureDepart, dateRetour, heureRetour])
 
   const suggestions = useMemo(() => {
-    const terme = texteLieu.trim().toLowerCase()
+    if (listeComplete) return lieux
+    const terme = texteLieu
+      .trim()
+      .toLowerCase()
+      .replace(/\s*[—–-]\s*/g, ' ')
     if (!terme) return lieux
-    return lieux.filter((l) => `${l.name} ${l.city || ''}`.toLowerCase().includes(terme))
-  }, [lieux, texteLieu])
+    return lieux.filter((l) =>
+      `${l.name} ${l.city || ''}`.toLowerCase().replace(/\s*[—–-]\s*/g, ' ').includes(terme),
+    )
+  }, [lieux, texteLieu, listeComplete])
+
+  function ouvrirListeComplete() {
+    setListeComplete(true)
+    setListeOuverte(true)
+  }
 
   function choisirLieu(lieu: Location) {
     setLocationId(lieu.id)
-    setTexteLieu(lieu.city ? `${lieu.name} — ${lieu.city}` : lieu.name)
+    setTexteLieu(libelleLieu(lieu))
     setListeOuverte(false)
+    setListeComplete(false)
     setErreur('')
   }
 
@@ -301,12 +343,12 @@ export function FormulaireVitrine() {
   return (
     <form
       onSubmit={onSubmit}
-      className="w-full rounded-xl bg-neutral-900/80 p-4 text-white shadow-2xl backdrop-blur-sm md:p-5"
+      className="relative z-20 w-full rounded-xl bg-neutral-900/80 p-4 text-white shadow-2xl backdrop-blur-sm transition-shadow duration-500 md:p-5"
     >
       <h1 className="text-xl font-bold md:text-2xl">Comparer les offres de location de voitures</h1>
 
       <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1.15fr)_minmax(0,1.15fr)_auto]">
-        <div ref={blocLieu} className="relative">
+        <div ref={blocLieu} className={`relative ${listeOuverte ? 'z-50' : ''}`}>
           <label htmlFor="lieu-prise" className="sr-only">
             Lieu de prise en charge
           </label>
@@ -325,15 +367,27 @@ export function FormulaireVitrine() {
               onChange={(e) => {
                 setTexteLieu(e.target.value)
                 setLocationId('')
+                setListeComplete(false)
                 setListeOuverte(true)
               }}
-              onFocus={() => setListeOuverte(true)}
-              className={`${champ} pl-9`}
+              onClick={ouvrirListeComplete}
+              onFocus={ouvrirListeComplete}
+              className={`${champ} pl-9 ${chargementLieux ? 'pr-9' : ''}`}
             />
+            {chargementLieux && (
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                <Spinner className="h-4 w-4" />
+              </span>
+            )}
           </div>
           {listeOuverte && (
-            <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-auto rounded-md bg-white text-neutral-900 shadow-xl">
-              {suggestions.length === 0 ? (
+            <ul className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-auto rounded-md bg-white text-neutral-900 shadow-xl">
+              {chargementLieux ? (
+                <li className="flex items-center gap-2 px-3 py-3 text-sm text-neutral-500">
+                  <Spinner className="h-4 w-4" />
+                  Chargement des lieux…
+                </li>
+              ) : suggestions.length === 0 ? (
                 <li className="px-3 py-3 text-sm text-neutral-500">Aucun lieu ne correspond.</li>
               ) : (
                 suggestions.map((lieu) => (
@@ -353,7 +407,7 @@ export function FormulaireVitrine() {
           )}
         </div>
 
-        <div ref={blocDates} className="relative grid gap-2 sm:grid-cols-2 lg:col-span-2">
+        <div ref={blocDates} className={`relative grid gap-2 sm:grid-cols-2 lg:col-span-2 ${calendrierOuvert ? 'z-50' : ''}`}>
           {caseDateHeure(dateDepart, heureDepart, 'Date et heure de départ')}
           {caseDateHeure(dateRetour, heureRetour, 'Date et heure de retour')}
           {calendrierOuvert && (
@@ -380,9 +434,18 @@ export function FormulaireVitrine() {
         <button
           type="submit"
           disabled={resumeDispo?.disponibles === 0 || (chargementDispo && !resumeDispo)}
-          className="h-12 rounded-md bg-forest-600 px-6 text-sm font-bold text-white transition hover:bg-forest-700 disabled:cursor-not-allowed disabled:bg-neutral-500 lg:min-w-[8.5rem]"
+          className="h-12 rounded-md bg-marque-500 px-6 text-sm font-bold text-marque-encre transition hover:bg-[#e09220] disabled:cursor-not-allowed disabled:bg-neutral-500 disabled:text-white lg:min-w-[8.5rem]"
         >
-          {resumeDispo?.disponibles === 0 ? 'Aucun véhicule' : 'Recherchez'}
+          {chargementDispo && !resumeDispo ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <Spinner className="h-4 w-4 border-white/40 border-t-white" />
+              Chargement
+            </span>
+          ) : resumeDispo?.disponibles === 0 ? (
+            'Aucun véhicule'
+          ) : (
+            'Recherchez'
+          )}
         </button>
       </div>
 

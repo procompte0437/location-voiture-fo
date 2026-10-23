@@ -5,7 +5,7 @@ export function Spinner({ className = 'h-5 w-5' }: { className?: string }) {
     <span
       role="status"
       aria-label="Chargement"
-      className={`inline-block animate-spin rounded-full border-2 border-[#0b3d2e]/25 border-t-[#0b3d2e] ${className}`}
+      className={`inline-block animate-spin rounded-full border-2 border-[#8c4205]/25 border-t-[#8c4205] ${className}`}
     />
   )
 }
@@ -52,8 +52,8 @@ export function SpinnerPourcentage({ className = 'py-16' }: { className?: string
       className={`flex flex-col items-center justify-center gap-3 ${className}`}
     >
       <div className="relative grid h-16 w-16 place-items-center">
-        <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-[#0b3d2e]/20 border-t-[#0b3d2e]" />
-        <span className="text-sm font-semibold tabular-nums text-[#0b3d2e]">{pourcentage}%</span>
+        <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-[#8c4205]/20 border-t-[#8c4205]" />
+        <span className="text-sm font-semibold tabular-nums text-[#8c4205]">{pourcentage}%</span>
       </div>
       <span className="text-sm text-ink-500">Chargement des données…</span>
     </div>

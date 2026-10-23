@@ -29,7 +29,7 @@ export function BoutonActionCrud({
     variante === 'supprimer'
       ? 'text-red-700 hover:bg-red-50'
       : variante === 'modifier'
-        ? 'text-[#0b3d2e] hover:bg-[#0b3d2e]/10'
+        ? 'text-[#8c4205] hover:bg-[#8c4205]/10'
         : 'text-ink-700 hover:bg-black/[0.04]'
 
   return (

@@ -211,7 +211,7 @@ export function EstimateurPrix({
                 {filtres.map((v) => (
                   <article
                     key={v.id}
-                    className="flex w-[min(100%,420px)] shrink-0 flex-col bg-neutral-100 p-6 sm:w-[calc(50%-0.5rem)]"
+                    className="carte-fluide flex w-[min(100%,420px)] shrink-0 flex-col bg-neutral-100 p-6 sm:w-[calc(50%-0.5rem)]"
                   >
                     <p className="text-sm text-neutral-500">{v.category_label || v.category}</p>
                     <div className="flex flex-1 items-center justify-center py-4">

@@ -108,7 +108,7 @@ export function ListeDeroulanteRecherche({
               onChange={(evenement) => setRecherche(evenement.target.value)}
               placeholder="Rechercher…"
               aria-label="Rechercher dans la liste"
-              className="w-full rounded-lg border border-black/10 px-2.5 py-2 text-sm outline-none focus:border-[#0b3d2e]/40"
+              className="w-full rounded-lg border border-black/10 px-2.5 py-2 text-sm outline-none focus:border-[#8c4205]/40"
             />
           </div>
           <ul className="max-h-52 overflow-y-auto py-1">
@@ -123,7 +123,7 @@ export function ListeDeroulanteRecherche({
                     aria-selected={option.valeur === valeur}
                     onClick={() => choisir(option.valeur)}
                     className={`block w-full px-3 py-2 text-left text-sm hover:bg-[#f4f5f4] ${
-                      option.valeur === valeur ? 'bg-[#0b3d2e]/10 font-medium text-[#0b3d2e]' : 'text-ink-800'
+                      option.valeur === valeur ? 'bg-[#8c4205]/10 font-medium text-[#8c4205]' : 'text-ink-800'
                     }`}
                   >
                     {option.libelle}

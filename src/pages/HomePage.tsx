@@ -7,6 +7,7 @@ import { FormulaireVitrine } from '../components/home/FormulaireVitrine'
 import { BarreEtapesReservation } from '../components/reservation/BarreEtapesReservation'
 import { Header } from '../components/layout/Header'
 import { PiedDePage } from '../components/layout/PiedDePage'
+import { Apparition } from '../components/ui/Apparition'
 import api, { formatXaf } from '../lib/api'
 import type { Vehicle } from '../types'
 
@@ -96,13 +97,17 @@ export function HomePage() {
       <Header />
 
       <section id="recherche" className="relative z-30 scroll-mt-24">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45) 100%), url('${photoHero}')`,
-          }}
-        />
-        <div className="relative mx-auto max-w-7xl space-y-4 px-4 py-10 md:px-6 md:py-16 lg:min-h-[420px] lg:py-20">
+        {/* Le fond animé déborde : on le coupe ici, pas la section, pour que
+            les listes du formulaire passent par-dessus le bandeau de confiance. */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <div
+            className="fond-vivant absolute -inset-8 bg-cover bg-center"
+            style={{
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45) 100%), url('${photoHero}')`,
+            }}
+          />
+        </div>
+        <div className="entree-page relative z-10 mx-auto max-w-7xl space-y-4 px-4 py-10 md:px-6 md:py-16 lg:min-h-[420px] lg:py-20">
           <BarreEtapesReservation etape="recherche" />
           <FormulaireVitrine />
         </div>
@@ -110,12 +115,15 @@ export function HomePage() {
 
       <BandeauConfiance />
 
-      <EstimateurPrix
-        vehicules={vehicules}
-        chargement={chargementVedettes}
-        categories={categories}
-      />
+      <Apparition>
+        <EstimateurPrix
+          vehicules={vehicules}
+          chargement={chargementVedettes}
+          categories={categories}
+        />
+      </Apparition>
 
+      <Apparition>
       <section id="agences" className="scroll-mt-24 bg-neutral-50 px-4 py-16 md:px-6 md:py-20">
         <div className="mx-auto max-w-7xl">
           <TitreSection
@@ -130,7 +138,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      </Apparition>
 
+      <Apparition>
       <section className="bg-neutral-100 px-4 py-16 md:px-6 md:py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-2 flex justify-center text-neutral-400">
@@ -146,10 +156,10 @@ export function HomePage() {
               const modele = v.category_label || v.display_name
               const phrase =
                 index === 0
-                  ? `${modele} pour la journée, chez ${v.partner.name || 'un partenaire'} à ${ville}. Le prix affiché est celui de la location.`
-                  : `${modele} pour le week-end, avec un partenaire vérifié. Le montant est connu avant de confirmer.`
+                  ? `${modele} pour la journée, à ${ville}. Le prix affiché est celui de la location.`
+                  : `${modele} pour le week-end. Le montant est connu avant de confirmer.`
               return (
-                <article key={v.id} className="bg-white p-6 shadow-sm md:p-8">
+                <article key={v.id} className="carte-fluide bg-white p-6 shadow-sm md:p-8">
                   <p className="text-sm text-neutral-500">
                     {index === 0 ? 'location en agence' : 'livraison'}
                   </p>
@@ -179,7 +189,9 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      </Apparition>
 
+      <Apparition>
       <section className="border-t border-neutral-100 bg-white px-4 py-12 text-center md:px-6">
         <p className="text-lg text-neutral-800 md:text-xl">
           Vous voulez réserver par téléphone ? Appelez-nous au :{' '}
@@ -191,6 +203,7 @@ export function HomePage() {
           Ouverts du lundi au vendredi de 8h à 20h, et le week-end de 9h à 18h.
         </p>
       </section>
+      </Apparition>
 
       <PiedDePage />
     </div>

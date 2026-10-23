@@ -25,7 +25,6 @@ const MENU: { titre: string; elements: ElementNav[] }[] = [
     elements: [
       { vers: '/partenaire/voitures', libelle: 'Mes voitures' },
       { vers: '/partenaire/entretiens', libelle: 'Entretiens' },
-      { vers: '/partenaire/voitures/nouvelle', libelle: 'Ajouter un véhicule' },
       { vers: '/partenaire/referentiel', libelle: 'Référentiel' },
     ],
   },
@@ -62,11 +61,6 @@ const ICONES: Record<string, ReactNode> = {
       <path d="M3 13h18v4a1 1 0 0 1-1 1h-1" />
       <circle cx="7" cy="17" r="1.5" />
       <circle cx="17" cy="17" r="1.5" />
-    </svg>
-  ),
-  '/partenaire/voitures/nouvelle': (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 5v14M5 12h14" strokeLinecap="round" />
     </svg>
   ),
   '/partenaire/referentiel': (
@@ -117,7 +111,7 @@ export function CoquePartenaire({
 
   const sousTitreEntete =
     emplacement.pathname.includes('/voitures/nouvelle')
-      ? 'Publier une nouvelle offre'
+      ? 'Enregistrer une voiture, puis la publier'
       : emplacement.pathname.includes('/voitures')
         ? 'Gérez votre flotte'
         : emplacement.pathname.includes('/finances')
@@ -143,7 +137,7 @@ export function CoquePartenaire({
         <button
           type="button"
           onClick={() => setMenuOuvert(true)}
-          className="rounded-lg bg-[#14201a] px-3 py-2 text-sm font-semibold text-white"
+          className="rounded-lg bg-[#0c3d30] px-3 py-2 text-sm font-semibold text-white"
         >
           Menu
         </button>
@@ -167,8 +161,8 @@ export function CoquePartenaire({
           menuOuvert ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="absolute inset-0 bg-[#14201a]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,160,23,0.18),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[#0c3d30]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(80,180,140,0.22),transparent_55%)]" />
         <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-gold-500/40 to-transparent" />
 
         <div className="relative flex h-full flex-col px-3 py-5">

@@ -79,8 +79,6 @@ export interface Vehicle {
   cover_url?: string | null
   media?: { id: number; url: string; is_cover: boolean }[]
   partner: {
-    id: number
-    name?: string
     average_rating: number
     reviews_count: number
     trust_level: string
@@ -106,8 +104,12 @@ export interface Booking {
   pickup_at: string
   return_at: string
   days_count: number
+  payment_method?: string | null
   total_amount: number
   commission_amount: number
+  cancellation_reason?: string | null
+  cancelled_at?: string | null
   vehicle?: Vehicle
   partner?: Partner
+  pickup_location?: Location | null
 }

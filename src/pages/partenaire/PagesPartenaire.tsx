@@ -607,26 +607,65 @@ export function PageAccueilPartenaire() {
   )
 }
 
-/** Grille de la flotte partenaire. */
+const FILTRES_PUBLICATION = [
+  ['toutes', 'Toutes'],
+  ['publiees', 'Publiées'],
+  ['non_publiees', 'Non publiées'],
+] as const
+
+/** Grille de la flotte partenaire, filtrable selon la publication. */
 export function PageMesVoitures() {
   const { labels } = useCatalog()
   const [vehicules, setVehicules] = useState<LigneVehicule[]>([])
   const [chargement, setChargement] = useState(true)
+  const [filtrePublication, setFiltrePublication] = useState<(typeof FILTRES_PUBLICATION)[number][0]>('toutes')
+  const [publicationId, setPublicationId] = useState<number | null>(null)
+  const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    void api
+  function charger() {
+    setChargement(true)
+    return api
       .get('/partenaires/moi/vehicules')
       .then((r) => setVehicules(r.data.data || []))
       .catch(() => setVehicules([]))
       .finally(() => setChargement(false))
+  }
+
+  useEffect(() => {
+    void charger()
   }, [])
+
+  const visibles = vehicules.filter((v) => {
+    if (filtrePublication === 'publiees') return v.status === 'published'
+    if (filtrePublication === 'non_publiees') return v.status !== 'published'
+    return true
+  })
+
+  async function publier(id: number) {
+    setPublicationId(id)
+    setMessage('')
+    try {
+      const { data } = await api.post(`/partenaires/moi/vehicules/${id}/publier`)
+      const statut = data.data?.status as string
+      setVehicules((actuel) => actuel.map((v) => (v.id === id ? { ...v, status: statut } : v)))
+      setMessage(
+        statut === 'published'
+          ? 'La voiture est publiée sur la plateforme.'
+          : 'Demande envoyée. La voiture n’est pas encore en ligne : elle attend la validation.',
+      )
+    } catch (err: unknown) {
+      setMessage(messageErreurApi(err, 'Impossible de publier cette voiture.'))
+    } finally {
+      setPublicationId(null)
+    }
+  }
 
   return (
     <div>
       <HeroPage
         surtitre="Flotte"
         titre="Mes voitures"
-        sousTitre="Suivez le statut de chaque véhicule et préparez de nouvelles offres."
+        sousTitre="Une voiture créée n’est pas encore publiée. Publiez-la ensuite, puis filtrez la flotte."
         action={
           <Link
             to="/partenaire/voitures/nouvelle"
@@ -637,8 +676,29 @@ export function PageMesVoitures() {
         }
       />
 
+      {message && <p className="mb-4 text-sm text-ink-700">{message}</p>}
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FILTRES_PUBLICATION.map(([valeur, libelle]) => (
+          <button
+            key={valeur}
+            type="button"
+            onClick={() => setFiltrePublication(valeur)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+              filtrePublication === valeur
+                ? 'bg-forest-900 text-white'
+                : 'border border-black/10 bg-white text-ink-700 hover:bg-black/[0.03]'
+            }`}
+          >
+            {libelle}
+          </button>
+        ))}
+      </div>
+
       {chargement ? (
-        <ContentLoader />
+        <div className="rounded-2xl border border-black/8 bg-white">
+          <ContentLoader />
+        </div>
       ) : vehicules.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center">
           <p className="font-display text-xl font-bold text-ink-900">Votre flotte est vide</p>
@@ -647,14 +707,19 @@ export function PageMesVoitures() {
             to="/partenaire/voitures/nouvelle"
             className="mt-6 inline-flex rounded-xl bg-forest-900 px-5 py-3 text-sm font-semibold text-white hover:bg-forest-800"
           >
-            Publier une offre
+            Ajouter une voiture
           </Link>
+        </div>
+      ) : visibles.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-black/15 bg-white px-6 py-16 text-center text-sm text-ink-500">
+          Aucune voiture pour ce filtre.
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {vehicules.map((v) => {
+          {visibles.map((v) => {
             const couverture =
               v.media?.find((m) => m.is_cover)?.url || v.media?.[0]?.url || v.cover_url || ''
+            const peutPublier = v.status === 'draft' || v.status === 'suspended'
             return (
               <article
                 key={v.id}
@@ -682,6 +747,16 @@ export function PageMesVoitures() {
                     {formatXaf(v.price_per_day)}
                     <span className="font-normal text-ink-500"> / jour</span>
                   </p>
+                  {peutPublier && (
+                    <button
+                      type="button"
+                      onClick={() => void publier(v.id)}
+                      disabled={publicationId === v.id}
+                      className="mt-4 w-full rounded-xl bg-forest-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-800 disabled:opacity-60"
+                    >
+                      {publicationId === v.id ? 'Publication…' : 'Publier'}
+                    </button>
+                  )}
                 </div>
               </article>
             )
@@ -721,6 +796,8 @@ export function PageNouvelleVoiture() {
   })
   const [fichierCouverture, setFichierCouverture] = useState<File | null>(null)
   const [apercuCouverture, setApercuCouverture] = useState<string | null>(null)
+  const [vehiculeCreeId, setVehiculeCreeId] = useState<number | null>(null)
+  const [publication, setPublication] = useState(false)
 
   useEffect(() => {
     void Promise.all([
@@ -776,14 +853,33 @@ export function PageNouvelleVoiture() {
       if (fichierCouverture) {
         chargeUtile.append('cover', fichierCouverture)
       }
-      await api.post('/partenaires/moi/vehicules', chargeUtile)
-      setMessage('Véhicule créé avec succès.')
-      setTimeout(() => naviguer('/partenaire/voitures'), 600)
+      const { data } = await api.post('/partenaires/moi/vehicules', chargeUtile)
+      setVehiculeCreeId(data.data?.id ?? null)
+      setMessage('Voiture enregistrée. Elle n’est pas encore publiée.')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setMessage(msg || 'Erreur lors de l’enregistrement.')
     } finally {
       setEnregistrement(false)
+    }
+  }
+
+  async function publierVoitureCreee() {
+    if (!vehiculeCreeId) return
+    setPublication(true)
+    setMessage('')
+    try {
+      const { data } = await api.post(`/partenaires/moi/vehicules/${vehiculeCreeId}/publier`)
+      const statut = data.data?.status as string
+      setMessage(
+        statut === 'published'
+          ? 'La voiture est publiée sur la plateforme.'
+          : 'Demande envoyée. La voiture n’est pas encore en ligne : elle attend la validation.',
+      )
+      setTimeout(() => naviguer('/partenaire/voitures'), 700)
+    } catch (err: unknown) {
+      setMessage(messageErreurApi(err, 'Impossible de publier cette voiture.'))
+      setPublication(false)
     }
   }
 
@@ -798,7 +894,7 @@ export function PageNouvelleVoiture() {
       <HeroPage
         surtitre="Flotte"
         titre="Ajouter un véhicule"
-        sousTitre="Renseignez les informations essentielles pour publier une offre attractive."
+        sousTitre="Enregistrez la voiture d’abord. Elle reste hors ligne tant que vous ne cliquez pas sur Publier."
       />
 
       {!estApprouve && (
@@ -811,6 +907,7 @@ export function PageNouvelleVoiture() {
         onSubmit={ajouterVehicule}
         className="mx-auto max-w-2xl space-y-4 rounded-2xl border border-black/8 bg-white p-6 md:p-8"
       >
+        <fieldset disabled={vehiculeCreeId !== null} className="space-y-4 disabled:opacity-70">
         <div className="grid gap-3 sm:grid-cols-2">
           <select
             className="rounded-xl border border-sand-200 px-4 py-3"
@@ -997,16 +1094,23 @@ export function PageNouvelleVoiture() {
             )}
           </div>
         </div>
+        </fieldset>
         {message && <p className="text-sm text-ink-700">{message}</p>}
         <div className="flex flex-col gap-2 sm:flex-row">
-          <BoutonPrincipal type="submit" disabled={enregistrement} className="flex-1">
-            {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
-          </BoutonPrincipal>
+          {vehiculeCreeId ? (
+            <BoutonPrincipal type="button" onClick={() => void publierVoitureCreee()} disabled={publication} className="flex-1">
+              {publication ? 'Publication…' : 'Publier'}
+            </BoutonPrincipal>
+          ) : (
+            <BoutonPrincipal type="submit" disabled={enregistrement} className="flex-1">
+              {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
+            </BoutonPrincipal>
+          )}
           <Link
             to="/partenaire/voitures"
             className="rounded-xl border border-black/10 px-5 py-3 text-center text-sm font-medium text-ink-700"
           >
-            Annuler
+            {vehiculeCreeId ? 'Plus tard' : 'Annuler'}
           </Link>
         </div>
       </form>

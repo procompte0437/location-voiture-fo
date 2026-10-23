@@ -239,9 +239,9 @@ export function SearchForm({ compact = false, espaceClient = false, vitrine = fa
         vitrine
           ? 'rounded-[28px] border border-white/70 p-5 shadow-[0_28px_70px_-28px_rgba(6,40,28,0.55)] md:p-7'
           : espaceClient
-            ? 'rounded-2xl border border-sand-200 shadow-sm'
+            ? ''
             : 'rounded-2xl shadow-xl shadow-forest-950/20'
-      } ${compact ? 'p-4' : vitrine ? '' : 'p-5 md:p-6'}`}
+      } ${compact ? 'p-4' : vitrine || espaceClient ? '' : 'p-5 md:p-6'}`}
     >
       <div className={`flex flex-wrap items-end justify-between gap-3 ${vitrine ? 'mb-5' : 'mb-4'}`}>
         {vitrine ? (
@@ -285,6 +285,7 @@ export function SearchForm({ compact = false, espaceClient = false, vitrine = fa
             pickupAt={form.pickup_at}
             returnAt={form.return_at}
             compact={compact}
+            dansFlux={espaceClient}
             onChange={(pickup_at, return_at) => setForm((f) => ({ ...f, pickup_at, return_at }))}
           />
           <p className={`mt-2 text-xs text-ink-500 ${vitrine && durationDays > 0 && !chargementVehicules ? 'sr-only' : ''}`}>
@@ -370,9 +371,11 @@ export function SearchForm({ compact = false, espaceClient = false, vitrine = fa
 
           {listeVehiculesOuverte && (
             <div
-              className={`absolute left-0 right-0 z-30 flex max-h-[min(18rem,calc(100dvh-10rem))] flex-col overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-forest-950/15 ${
-                espaceClient ? 'bottom-full mb-2' : 'top-full mt-2'
-              }`}
+              className={
+                espaceClient
+                  ? 'mt-2 flex max-h-72 flex-col overflow-hidden rounded-2xl border border-sand-200 bg-sand-50'
+                  : 'absolute left-0 right-0 top-full z-30 mt-2 flex max-h-[min(18rem,calc(100dvh-10rem))] flex-col overflow-hidden rounded-2xl border border-sand-200 bg-white shadow-xl shadow-forest-950/15'
+              }
             >
               <div className="shrink-0 border-b border-sand-100 p-3">
                 <input

@@ -307,7 +307,7 @@ export function AdminAgencesPage() {
                 onClick={() => void basculerActif(a)}
                 title={a.is_active ? 'Désactiver' : 'Activer'}
                 className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  a.is_active ? 'bg-[#0b3d2e]/10 text-[#0b3d2e]' : 'bg-[#f0f1f0] text-ink-500'
+                  a.is_active ? 'bg-[#8c4205]/10 text-[#8c4205]' : 'bg-[#f0f1f0] text-ink-500'
                 }`}
               >
                 {a.is_active ? 'Active' : 'Inactive'}

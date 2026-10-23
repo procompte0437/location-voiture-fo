@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BoutonActionCrud } from './BoutonActionCrud'
+import { FenetreModale } from './FenetreModale'
 import { SpinnerPourcentage } from './Spinner'
 
 /** Définition d’une colonne du tableau. */
@@ -34,8 +35,11 @@ type PropsTableauDonnees<T> = {
   taillePage?: number
   /** Actions par ligne (icônes à droite). */
   actions?: (ligne: T) => ReactNode
-  /** Contenu déplié sous la ligne (œil « voir le détail »). */
+  /** Fiche ouverte dans un modal par l’œil « voir le détail ». */
   renduDetail?: (ligne: T) => ReactNode
+  /** Titre du modal de détail. */
+  titreDetail?: (ligne: T) => string
+  sousTitreDetail?: (ligne: T) => string | undefined
 }
 
 /**
@@ -55,6 +59,8 @@ export function TableauDonnees<T>({
   taillePage = 10,
   actions,
   renduDetail,
+  titreDetail,
+  sousTitreDetail,
 }: PropsTableauDonnees<T>) {
   const [recherche, setRecherche] = useState('')
   const [menuOuvert, setMenuOuvert] = useState(false)
@@ -65,7 +71,6 @@ export function TableauDonnees<T>({
   const zoneMenu = useRef<HTMLDivElement>(null)
 
   const montreActions = Boolean(actions || renduDetail)
-  const nbColonnes = colonnes.length + (montreActions ? 1 : 0)
   const montreMenu = Boolean(champsRecherche || filtresSupplementaires)
   const tailles = TAILLES_PAGE.includes(taillePage)
     ? TAILLES_PAGE
@@ -74,6 +79,8 @@ export function TableauDonnees<T>({
   function basculerDetail(id: string | number) {
     setLigneOuverte((actuel) => (actuel === id ? null : id))
   }
+
+  const fermerDetail = useCallback(() => setLigneOuverte(null), [])
 
   // Remet la page à 1 quand le jeu de données ou les filtres changent.
   useEffect(() => {
@@ -102,6 +109,8 @@ export function TableauDonnees<T>({
   const debut = (pageCourante - 1) * parPage
   const pageDonnees = filtrees.slice(debut, debut + parPage)
   const rechercheActive = recherche.trim().length > 0
+  const ligneDetail =
+    ligneOuverte == null ? null : filtrees.find((ligne) => cleLigne(ligne) === ligneOuverte) ?? null
 
   async function actualiser() {
     setActualisation(true)
@@ -130,11 +139,11 @@ export function TableauDonnees<T>({
                 </svg>
                 Recherche
                 {(rechercheActive || filtreActif) && (
-                  <span className="h-2 w-2 rounded-full bg-[#0b3d2e]" aria-hidden />
+                  <span className="h-2 w-2 rounded-full bg-[#8c4205]" aria-hidden />
                 )}
               </button>
               {menuOuvert && (
-                <div className="absolute left-0 z-20 mt-2 w-72 space-y-2 rounded-xl border border-black/10 bg-white p-3 shadow-lg [&_select]:w-full">
+                <div className="absolute left-0 z-20 mt-2 max-h-[min(70vh,32rem)] w-80 space-y-2 overflow-y-auto rounded-xl border border-black/10 bg-white p-3 shadow-lg [&_select]:w-full">
                   {champsRecherche && (
                     <input
                       autoFocus
@@ -186,9 +195,7 @@ export function TableauDonnees<T>({
         </div>
       </div>
 
-      {chargement || actualisation ? (
-        <SpinnerPourcentage />
-      ) : filtrees.length === 0 ? (
+      {!(chargement || actualisation) && filtrees.length === 0 ? (
         <p className="px-5 py-14 text-center text-sm text-ink-500">{messageVide}</p>
       ) : (
         <>
@@ -207,56 +214,55 @@ export function TableauDonnees<T>({
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5">
-                {pageDonnees.map((ligne) => {
+                {chargement || actualisation ? (
+                  <tr>
+                    <td colSpan={colonnes.length + (montreActions ? 1 : 0)} className="p-0">
+                      <SpinnerPourcentage className="py-10" />
+                    </td>
+                  </tr>
+                ) : (
+                  pageDonnees.map((ligne) => {
                   const id = cleLigne(ligne)
-                  const ouverte = ligneOuverte === id
                   return (
-                    <Fragment key={id}>
-                      <tr className="hover:bg-black/[0.015]">
-                        {colonnes.map((col) => (
-                          <td
-                            key={col.cle}
-                            className={`px-4 py-3 text-ink-800 ${col.classe || ''}`}
-                          >
-                            {col.rendu
-                              ? col.rendu(ligne)
-                              : (() => {
-                                  const valeur = (ligne as unknown as Record<string, unknown>)[
-                                    col.cle
-                                  ]
-                                  return valeur == null || valeur === '' ? '—' : String(valeur)
-                                })()}
-                          </td>
-                        ))}
-                        {montreActions && (
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
-                              {renduDetail && (
-                                <BoutonActionCrud
-                                  variante="voir"
-                                  libelle={ouverte ? 'Replier le détail' : 'Voir le détail'}
-                                  onClick={() => basculerDetail(id)}
-                                />
-                              )}
-                              {actions?.(ligne)}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                      {renduDetail && ouverte && (
-                        <tr className="bg-sand-50/80">
-                          <td colSpan={nbColonnes} className="px-4 py-4">
-                            {renduDetail(ligne)}
-                          </td>
-                        </tr>
+                    <tr key={id} className="hover:bg-black/[0.015]">
+                      {colonnes.map((col) => (
+                        <td
+                          key={col.cle}
+                          className={`px-4 py-3 text-ink-800 ${col.classe || ''}`}
+                        >
+                          {col.rendu
+                            ? col.rendu(ligne)
+                            : (() => {
+                                const valeur = (ligne as unknown as Record<string, unknown>)[
+                                  col.cle
+                                ]
+                                return valeur == null || valeur === '' ? '—' : String(valeur)
+                              })()}
+                        </td>
+                      ))}
+                      {montreActions && (
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {renduDetail && (
+                              <BoutonActionCrud
+                                variante="voir"
+                                libelle="Voir le détail"
+                                onClick={() => basculerDetail(id)}
+                              />
+                            )}
+                            {actions?.(ligne)}
+                          </div>
+                        </td>
                       )}
-                    </Fragment>
+                    </tr>
                   )
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
 
+          {!(chargement || actualisation) && (
           <div className="flex flex-col gap-2 border-t border-black/8 px-4 py-3 text-sm text-ink-500 sm:flex-row sm:items-center sm:justify-between">
             <p>
               {filtrees.length} résultat{filtrees.length > 1 ? 's' : ''}
@@ -282,8 +288,18 @@ export function TableauDonnees<T>({
               </button>
             </div>
           </div>
+          )}
         </>
       )}
+      <FenetreModale
+        ouvert={ligneDetail != null && Boolean(renduDetail)}
+        titre={ligneDetail ? (titreDetail?.(ligneDetail) ?? 'Détail') : 'Détail'}
+        sousTitre={ligneDetail ? sousTitreDetail?.(ligneDetail) : undefined}
+        onFermer={fermerDetail}
+        classePanneau="max-h-[min(85vh,44rem)] w-full max-w-2xl"
+      >
+        {ligneDetail && renduDetail ? renduDetail(ligneDetail) : null}
+      </FenetreModale>
     </div>
   )
 }

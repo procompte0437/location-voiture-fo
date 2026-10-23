@@ -119,7 +119,7 @@ export function CarteProvincesGabon() {
     <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.95fr)]">
       <div className="flex flex-col rounded-2xl border border-sand-200 bg-white p-5 shadow-sm md:p-6 lg:order-2">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="rounded-md bg-[#1E4F8E] px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="rounded-md bg-[#b85c00] px-2.5 py-1 text-xs font-semibold text-white">
             Province {codeActif} — {provinceActive.nom}
           </span>
           {!chargement && !aDesAgences(codeActif) && (
@@ -178,10 +178,7 @@ export function CarteProvincesGabon() {
                       className="rounded-xl border border-sand-200 bg-sand-50/80 px-3 py-2"
                     >
                       <p className="text-sm font-medium text-ink-900">{a.name}</p>
-                      <p className="text-xs text-ink-500">
-                        {a.partner_name ? `${a.partner_name} · ` : ''}
-                        {a.city}
-                      </p>
+                      <p className="text-xs text-ink-500">{a.city}</p>
                     </li>
                   ))}
                 </ul>
@@ -224,9 +221,9 @@ export function CarteProvincesGabon() {
                   onClick={() => setCodeActif(p.code)}
                   className={`rounded-lg border px-2 py-2 text-left text-xs transition ${
                     actif
-                      ? 'border-[#1E4F8E] bg-[#1E4F8E] text-white'
+                      ? 'border-[#b85c00] bg-[#b85c00] text-white'
                       : avecAgence
-                        ? 'border-sand-200 bg-white text-ink-700 hover:border-[#1E4F8E]/40'
+                        ? 'border-sand-200 bg-white text-ink-700 hover:border-[#b85c00]/40'
                         : 'border-neutral-200 bg-neutral-100 text-neutral-400'
                   }`}
                 >
@@ -248,7 +245,7 @@ export function CarteProvincesGabon() {
       <div className="flex flex-col rounded-2xl border border-sand-200 bg-gradient-to-b from-[#e8f1f8] to-[#f4f7fa] p-4 shadow-sm md:p-5 lg:order-1">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#1E4F8E] text-white">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#b85c00] text-white">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
                 <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5S13.4 11.5 12 11.5z" />
               </svg>
@@ -257,7 +254,7 @@ export function CarteProvincesGabon() {
               Cartographie officielle interactive
             </h3>
           </div>
-          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#1E4F8E] shadow-sm ring-1 ring-[#1E4F8E]/20">
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#b85c00] shadow-sm ring-1 ring-[#b85c00]/20">
             {nbProvincesAvecAgence}/9 avec agences
           </span>
         </div>
@@ -273,16 +270,16 @@ export function CarteProvincesGabon() {
         >
           <defs>
             <linearGradient id="grad-selected" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#00A651" />
-              <stop offset="100%" stopColor="#007A3D" />
+              <stop offset="0%" stopColor="#F0A038" />
+              <stop offset="100%" stopColor="#C56A08" />
             </linearGradient>
             <linearGradient id="grad-hover" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#3B82F6" />
-              <stop offset="100%" stopColor="#1D4ED8" />
+              <stop offset="0%" stopColor="#E09220" />
+              <stop offset="100%" stopColor="#C56A08" />
             </linearGradient>
             <linearGradient id="grad-default" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#2E68B4" />
-              <stop offset="100%" stopColor="#1E4F8E" />
+              <stop offset="0%" stopColor="#F6C56A" />
+              <stop offset="100%" stopColor="#E8A04A" />
             </linearGradient>
             <linearGradient id="grad-vide" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#D1D5DB" />
@@ -362,7 +359,7 @@ export function CarteProvincesGabon() {
                     cy={c.y}
                     r={actif ? 8 : hover ? 7 : 5.5}
                     fill={actif ? '#FFDE16' : avecAgence ? '#FFFFFF' : '#E5E7EB'}
-                    stroke={actif ? '#0F2B52' : avecAgence ? '#1E4F8E' : '#9CA3AF'}
+                    stroke={actif ? '#005038' : avecAgence ? '#8c4205' : '#9CA3AF'}
                     strokeWidth={2.2}
                     className="transition-all duration-200"
                   />
@@ -373,7 +370,7 @@ export function CarteProvincesGabon() {
                       width={largeur}
                       height={14}
                       rx={3}
-                      fill={actif ? '#0A1E3B' : 'rgba(255,255,255,0.95)'}
+                      fill={actif ? '#3d1c02' : 'rgba(255,255,255,0.95)'}
                       stroke={actif ? '#FFDE16' : avecAgence ? '#94A3B8' : '#D1D5DB'}
                       strokeWidth={0.9}
                     />
@@ -397,7 +394,7 @@ export function CarteProvincesGabon() {
 
         <div className="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-slate-200 pt-2.5 text-[10.5px] text-slate-600">
           <span className="flex items-center gap-1 font-medium">
-            <span className="h-2.5 w-2.5 rounded-sm bg-[#1E4F8E]" /> Avec agences
+            <span className="h-2.5 w-2.5 rounded-sm bg-[#b85c00]" /> Avec agences
           </span>
           <span className="flex items-center gap-1 font-medium">
             <span className="h-2.5 w-2.5 rounded-sm bg-[#9CA3AF]" /> Sans agence

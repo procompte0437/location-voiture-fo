@@ -87,13 +87,21 @@ function normaliserPlage(a: Date, b: Date) {
 }
 
 type Props = {
+  /** Le calendrier s’insère dans le flux (modal) au lieu de flotter et d’être coupé. */
+  dansFlux?: boolean
   pickupAt: string
   returnAt: string
   onChange: (pickupAt: string, returnAt: string) => void
   compact?: boolean
 }
 
-export function DateRangePicker({ pickupAt, returnAt, onChange, compact = false }: Props) {
+export function DateRangePicker({
+  pickupAt,
+  returnAt,
+  onChange,
+  compact = false,
+  dansFlux = false,
+}: Props) {
   const racine = useRef<HTMLDivElement>(null)
   const debutGlisseRef = useRef<Date | null>(null)
   const survolRef = useRef<Date | null>(null)
@@ -403,7 +411,11 @@ export function DateRangePicker({ pickupAt, returnAt, onChange, compact = false 
       </div>
 
       {ouvert && (
-        <div className="absolute left-0 right-0 z-30 mt-2 rounded-2xl border border-sand-200 bg-white p-4 shadow-xl shadow-forest-950/15 md:min-w-[540px]">
+        <div
+          className={`z-30 mt-2 rounded-2xl border border-sand-200 bg-white p-4 shadow-xl shadow-forest-950/15 md:min-w-[540px] ${
+            dansFlux ? 'relative' : 'absolute left-0 right-0'
+          }`}
+        >
           <div className="mb-3 flex items-center justify-between">
             <button
               type="button"

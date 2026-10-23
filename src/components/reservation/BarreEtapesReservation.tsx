@@ -54,7 +54,7 @@ export function BarreEtapesReservation({ etape, onChoisir }: Props) {
                   type="button"
                   disabled={!atteinte || (!onChoisir && !courante)}
                   onClick={() => onChoisir?.(item.id)}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all duration-300 ${
                     courante
                       ? 'bg-forest-700 text-white ring-4 ring-forest-100'
                       : atteinte

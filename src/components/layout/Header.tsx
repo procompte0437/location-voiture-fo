@@ -43,8 +43,8 @@ function BarreNavigation() {
   }
 
   return (
-    <header id="haut" className="sticky top-0 z-50">
-      <div className="bg-forest-700 text-white">
+    <header id="haut" className="relative z-30 shrink-0 border-b border-sand-200 bg-sand-50 text-marque-encre">
+      <div>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <Link to="/" className="inline-flex shrink-0 items-center gap-2.5" aria-label="DOTO — accueil">
             <LogoDoto className="h-14 w-14 md:h-16 md:w-16" />
@@ -55,7 +55,7 @@ function BarreNavigation() {
             {!connecte && (
               <nav className="flex items-center gap-3 text-sm font-semibold sm:gap-5" aria-label="Navigation principale">
                 {LIENS_PUBLICS.map((lien) => (
-                  <Link key={lien.vers} to={lien.vers} className="whitespace-nowrap hover:text-gold-400">
+                  <Link key={lien.vers} to={lien.vers} className="whitespace-nowrap hover:underline">
                     {lien.libelle}
                   </Link>
                 ))}
@@ -64,7 +64,7 @@ function BarreNavigation() {
             {!connecte && (
               <Link
                 to="/connexion"
-                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-marque-encre/40 px-3 py-1.5 text-sm font-semibold hover:bg-marque-encre/10"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <circle cx="12" cy="8" r="3.2" />
@@ -76,7 +76,7 @@ function BarreNavigation() {
             {espacePro && (
               <Link
                 to={espacePro.to}
-                className="inline-flex items-center gap-2 rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-md border border-marque-encre/40 px-3 py-1.5 text-sm font-semibold hover:bg-marque-encre/10"
               >
                 {espacePro.label}
               </Link>
@@ -85,7 +85,7 @@ function BarreNavigation() {
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="inline-flex shrink-0 whitespace-nowrap rounded-md border border-white/70 px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+                className="inline-flex shrink-0 whitespace-nowrap rounded-md border border-marque-encre/40 px-3 py-1.5 text-sm font-semibold hover:bg-marque-encre/10"
               >
                 Déconnexion
               </button>

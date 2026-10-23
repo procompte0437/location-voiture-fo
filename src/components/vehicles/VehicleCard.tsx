@@ -36,7 +36,6 @@ export function VehicleCard({ vehicle, searchQuery }: { vehicle: Vehicle; search
               </h3>
             </Link>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-500">
-              <span>{vehicle.partner.name}</span>
               <span className="text-gold-600">★ {vehicle.partner.average_rating.toFixed(1)}</span>
               {vehicle.partner.trust_level !== 'new' && (
                 <span className="rounded-full bg-forest-100 px-2 py-0.5 text-xs font-medium text-forest-800">

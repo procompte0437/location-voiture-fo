@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ContentLoader } from '../../components/ui/Spinner'
+import { FenetreModale } from '../../components/ui/FenetreModale'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf, messageErreurApi } from '../../lib/api'
@@ -32,7 +33,7 @@ function PillTabs({
           onClick={() => onChange(v)}
           className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
             value === v
-              ? 'bg-[#0b3d2e] text-white'
+              ? 'bg-[#8c4205] text-white'
               : 'border border-black/10 bg-white text-ink-700 hover:bg-[#f4f5f4]'
           }`}
         >
@@ -54,12 +55,14 @@ export function AdminAccountsPage() {
       role: string
       status: string
       created_at: string
-      owned_partner?: { company_name?: string; status?: string } | null
+      owned_partner?: { id?: number; company_name?: string; status?: string } | null
     }[]
   >([])
   const [role, setRole] = useState('')
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
+  const [dossierAValider, setDossierAValider] = useState<{ id: number; nom: string } | null>(null)
+  const [validationEnCours, setValidationEnCours] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -79,8 +82,35 @@ export function AdminAccountsPage() {
 
   async function setStatus(id: number, status: string) {
     await api.patch(`/admin/users/${id}/status`, { status })
-    setMsg(`Compte #${id} ? ${status}`)
+    setMsg(status === 'active' ? 'Compte réactivé.' : 'Compte suspendu.')
     await load()
+  }
+
+  // Le dossier partenaire (pending) bloque la publication des véhicules tant qu’il n’est pas validé.
+  async function confirmerValidation() {
+    if (!dossierAValider) return
+    setValidationEnCours(true)
+    try {
+      await api.post(`/admin/partners/${dossierAValider.id}/approve`)
+      setMsg(`Dossier « ${dossierAValider.nom} » validé. Le partenaire peut publier ses véhicules.`)
+      setDossierAValider(null)
+      await load()
+    } catch (err) {
+      setMsg(messageErreurApi(err, 'Impossible de valider ce partenaire.'))
+    } finally {
+      setValidationEnCours(false)
+    }
+  }
+
+  const libelleDossier = (statut?: string) => {
+    const map: Record<string, string> = {
+      pending: 'en attente',
+      approved: 'validé',
+      rejected: 'refusé',
+      suspended: 'suspendu',
+      info_requested: 'infos demandées',
+    }
+    return statut ? map[statut] || statut : '?'
   }
 
   if (user?.role !== 'super_admin') {
@@ -89,7 +119,7 @@ export function AdminAccountsPage() {
 
   const libelleRole = (r: string) => {
     const map: Record<string, string> = {
-      customer: 'R�servateur',
+      customer: 'Réservateur',
       partner: 'Partenaire',
       partner_agent: 'Agent partenaire',
       admin: 'Admin',
@@ -102,7 +132,7 @@ export function AdminAccountsPage() {
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Comptes"
-        subtitle="R�serv� au super admin : gestion de tous les partenaires et des comptes r�servateurs."
+        subtitle="Réservé au super admin : gestion de tous les partenaires et des comptes réservateurs."
       />
       {msg && <p className="mb-4 text-sm text-ink-600">{msg}</p>}
       <PillTabs
@@ -110,7 +140,7 @@ export function AdminAccountsPage() {
         onChange={setRole}
         options={[
           ['', 'Tous'],
-          ['customer', 'R�servateurs'],
+          ['customer', 'Réservateurs'],
           ['partner', 'Partenaires'],
           ['admin', 'Admins'],
           ['super_admin', 'Super admin'],
@@ -122,7 +152,7 @@ export function AdminAccountsPage() {
           { cle: 'email', libelle: 'Email' },
           {
             cle: 'role',
-            libelle: 'R�le',
+            libelle: 'Rôle',
             rendu: (u) => libelleRole(u.role),
           },
           {
@@ -130,8 +160,8 @@ export function AdminAccountsPage() {
             libelle: 'Dossier partenaire',
             rendu: (u) =>
               u.owned_partner?.company_name
-                ? `${u.owned_partner.company_name} (${u.owned_partner.status || '?'})`
-                : '?',
+                ? `${u.owned_partner.company_name} (${libelleDossier(u.owned_partner.status)})`
+                : '—',
           },
           {
             cle: 'status',
@@ -147,12 +177,31 @@ export function AdminAccountsPage() {
         surActualiser={load}
         chargement={loading}
         messageVide="Aucun compte."
-        actions={(u) => (
+        actions={(u) => {
+          const dossier = u.owned_partner
+          const peutValider =
+            dossier?.id != null &&
+            (dossier.status === 'pending' || dossier.status === 'info_requested' || dossier.status === 'rejected')
+          return (
           <>
+            {peutValider && (
+              <button
+                type="button"
+                className="rounded-lg bg-[#8c4205] px-2 py-1 text-xs font-semibold text-white"
+                onClick={() =>
+                  setDossierAValider({
+                    id: dossier.id as number,
+                    nom: dossier.company_name || u.name,
+                  })
+                }
+              >
+                Valider
+              </button>
+            )}
             {u.status !== 'active' && (
               <button
                 type="button"
-                className="rounded-lg bg-[#0b3d2e] px-2 py-1 text-xs text-white"
+                className="rounded-lg bg-[#8c4205] px-2 py-1 text-xs text-white"
                 onClick={() => void setStatus(u.id, 'active')}
               >
                 Activer
@@ -168,8 +217,39 @@ export function AdminAccountsPage() {
               </button>
             )}
           </>
-        )}
+          )
+        }}
       />
+      <FenetreModale
+        ouvert={dossierAValider !== null}
+        titre="Valider le compte partenaire"
+        sousTitre={dossierAValider ? dossierAValider.nom : undefined}
+        onFermer={() => {
+          if (!validationEnCours) setDossierAValider(null)
+        }}
+      >
+        <p className="text-sm text-ink-600">
+          Une fois validé, ce partenaire pourra publier ses véhicules.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-xl border border-black/10 px-4 py-2 text-sm font-medium text-ink-700"
+            disabled={validationEnCours}
+            onClick={() => setDossierAValider(null)}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="rounded-xl bg-[#8c4205] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={validationEnCours}
+            onClick={() => void confirmerValidation()}
+          >
+            {validationEnCours ? 'Validation…' : 'Valider le compte'}
+          </button>
+        </div>
+      </FenetreModale>
     </div>
   )
 }
@@ -209,11 +289,21 @@ type LigneReservationAdmin = {
   guest_name?: string
   guest_email?: string
   guest_phone?: string
+  cancellation_reason?: string | null
   customer?: { name: string; email: string; phone?: string }
   vehicle?: { brand: string; model: string }
   partner?: { company_name?: string }
   pickup_location?: { name: string; city?: string }
   return_location?: { name: string; city?: string }
+}
+
+function nomClientReservation(b: LigneReservationAdmin) {
+  return b.customer?.name || b.guest_name || b.guest_email || 'Client inconnu'
+}
+
+/** Identifie un client pour filtrer son historique, même sans compte. */
+function cleClientReservation(b: LigneReservationAdmin) {
+  return (b.customer?.email || b.guest_email || b.guest_name || '').toLowerCase()
 }
 
 function formaterPeriode(iso?: string) {
@@ -292,6 +382,7 @@ export function AdminBookingsPage() {
   const [message, setMessage] = useState('')
   const [erreur, setErreur] = useState('')
   const [filtreStatut, setFiltreStatut] = useState('')
+  const [filtreClient, setFiltreClient] = useState('')
   const [filtrePartenaire, setFiltrePartenaire] = useState('')
   const [filtreLieu, setFiltreLieu] = useState('')
   const [filtreDureeMin, setFiltreDureeMin] = useState('')
@@ -299,6 +390,7 @@ export function AdminBookingsPage() {
   /** '' | 'depasse' | '1' | '2' | '3' | '7' | 'custom' */
   const [filtreEcheance, setFiltreEcheance] = useState('')
   const [joursEcheancePerso, setJoursEcheancePerso] = useState('5')
+  const [aSupprimer, setASupprimer] = useState<LigneReservationAdmin | null>(null)
 
   async function charger() {
     setLoading(true)
@@ -315,6 +407,16 @@ export function AdminBookingsPage() {
   useEffect(() => {
     void charger()
   }, [])
+
+  const clients = useMemo(() => {
+    const vus = new Map<string, string>()
+    for (const b of bookings) {
+      const cle = cleClientReservation(b)
+      if (!cle || vus.has(cle)) continue
+      vus.set(cle, nomClientReservation(b))
+    }
+    return [...vus.entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr'))
+  }, [bookings])
 
   const partenaires = useMemo(() => {
     const noms = new Set<string>()
@@ -336,6 +438,7 @@ export function AdminBookingsPage() {
     const seuilPerso = Math.max(1, Number(joursEcheancePerso) || 1)
     return bookings.filter((b) => {
       if (filtreStatut && b.status !== filtreStatut) return false
+      if (filtreClient && cleClientReservation(b) !== filtreClient) return false
       if (filtrePartenaire && b.partner?.company_name !== filtrePartenaire) return false
       if (filtreLieu && b.pickup_location?.name !== filtreLieu) return false
       const duree = dureeJoursReservation(b)
@@ -359,6 +462,7 @@ export function AdminBookingsPage() {
   }, [
     bookings,
     filtreStatut,
+    filtreClient,
     filtrePartenaire,
     filtreLieu,
     filtreDureeMin,
@@ -397,7 +501,9 @@ export function AdminBookingsPage() {
   }
 
   function annuler(id: number) {
-    if (!window.confirm('Annuler définitivement cette réservation ?')) return Promise.resolve()
+    if (!window.confirm('Annuler cette réservation ? Elle restera visible dans l’historique.')) {
+      return Promise.resolve()
+    }
     return executerAction(
       id,
       () => api.post(`/admin/bookings/${id}/cancel`, { reason: 'Annulée par l’administration.' }),
@@ -422,7 +528,7 @@ export function AdminBookingsPage() {
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Réservations"
-        subtitle="Toutes les réservations de la marketplace — suivi et validation admin."
+        subtitle="Historique complet, y compris les annulations. Filtrez par client. La suppression retire la réservation pour de bon."
       />
       {message && (
         <div className="mb-4 rounded-xl border border-forest-600/20 bg-forest-50 px-4 py-3 text-sm text-forest-900">
@@ -562,6 +668,19 @@ export function AdminBookingsPage() {
               ))}
             </select>
             <select
+              value={filtreClient}
+              onChange={(e) => setFiltreClient(e.target.value)}
+              className={selectFiltre}
+              aria-label="Filtrer par client"
+            >
+              <option value="">Tous les clients</option>
+              {clients.map(([cle, nom]) => (
+                <option key={cle} value={cle}>
+                  {nom}
+                </option>
+              ))}
+            </select>
+            <select
               value={filtrePartenaire}
               onChange={(e) => setFiltrePartenaire(e.target.value)}
               className={selectFiltre}
@@ -684,6 +803,12 @@ export function AdminBookingsPage() {
                 {dureeJoursReservation(b) > 1 ? 's' : ''}
               </dd>
             </div>
+            {b.cancellation_reason && (
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-ink-500">Motif d’annulation</dt>
+                <dd className="font-medium">{b.cancellation_reason}</dd>
+              </div>
+            )}
           </dl>
         )}
         actions={(b) => {
@@ -696,7 +821,7 @@ export function AdminBookingsPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void valider(b.id)}
-                  className="rounded-lg bg-[#0b3d2e] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                  className="rounded-lg bg-[#8c4205] px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60"
                 >
                   {busy ? '…' : 'Valider'}
                 </button>
@@ -721,10 +846,60 @@ export function AdminBookingsPage() {
                   Annuler
                 </button>
               )}
+              {b.status === 'cancelled' && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setASupprimer(b)}
+                  className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+                >
+                  Supprimer
+                </button>
+              )}
             </>
           )
         }}
       />
+      <FenetreModale
+        ouvert={aSupprimer !== null}
+        titre="Supprimer définitivement"
+        sousTitre={aSupprimer ? `${nomClientReservation(aSupprimer)} · ${aSupprimer.reference}` : undefined}
+        onFermer={() => {
+          if (enCoursId == null) setASupprimer(null)
+        }}
+      >
+        <p className="text-sm text-ink-700">
+          Cette réservation annulée sera effacée de l’historique. La suppression est irréversible.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={enCoursId != null}
+            onClick={() => setASupprimer(null)}
+            className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold"
+          >
+            Garder
+          </button>
+          <button
+            type="button"
+            disabled={enCoursId != null}
+            onClick={() => {
+              if (!aSupprimer) return
+              const cible = aSupprimer
+              setASupprimer(null)
+              void executerAction(
+                cible.id,
+                () => api.delete(`/admin/bookings/${cible.id}`),
+                'Réservation supprimée définitivement.',
+                'Impossible de supprimer cette réservation.',
+              )
+            }}
+            className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Supprimer
+          </button>
+        </div>
+      </FenetreModale>
     </div>
   )
 }

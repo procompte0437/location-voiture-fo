@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
+import { BoutonToutDeplier, IconeChevron } from '../../components/ui/IconeDepliage'
+import { FenetreModale } from '../../components/ui/FenetreModale'
 import { ContentLoader } from '../../components/ui/Spinner'
 import api, { formatXaf } from '../../lib/api'
 
@@ -8,7 +11,17 @@ type PartnerOption = {
   id: number
   company_name?: string
   manager_name?: string
+  city?: string
   status: string
+  vehicles?: VehicleRow[]
+}
+
+const LIBELLES_STATUT_VEHICULE: Record<string, string> = {
+  published: 'Publié',
+  pending_validation: 'À valider',
+  draft: 'Brouillon',
+  suspended: 'Suspendu',
+  archived: 'Archivé',
 }
 
 type VehicleRow = {
@@ -71,6 +84,76 @@ function partnerName(p?: PartnerOption | VehicleRow['partner']) {
   return p?.company_name || p?.manager_name || '—'
 }
 
+const LIBELLES_STATUT_PARTENAIRE: Record<string, string> = {
+  pending: 'En attente',
+  info_requested: 'Infos demandées',
+  approved: 'Approuvé',
+  rejected: 'Refusé',
+  suspended: 'Suspendu',
+}
+
+function LigneVoiturePartenaire({
+  v,
+  categoryLabel,
+  onApprove,
+  onUnpublish,
+  onRemove,
+}: {
+  v: VehicleRow
+  categoryLabel: (categorie: string) => string
+  onApprove: (id: number) => Promise<void>
+  onUnpublish: (id: number) => Promise<void>
+  onRemove: (id: number) => Promise<void>
+}) {
+  const image = coverUrl(v)
+  return (
+    <li className="flex gap-3 rounded-xl border border-black/8 bg-white p-2.5">
+      <Link to={`/admin/vehicules/${v.id}`} className="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-[#f0f1f0]">
+        {image ? (
+          <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <span className="grid h-full place-items-center text-[10px] text-ink-400">Pas de photo</span>
+        )}
+      </Link>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <Link to={`/admin/vehicules/${v.id}`} className="font-semibold text-ink-900 hover:underline">
+              {v.brand} {v.model}
+            </Link>
+            <p className="text-xs text-ink-500">
+              {v.plate_number || 'Sans plaque'} · {v.category_info?.label || categoryLabel(v.category)} · {formatXaf(v.price_per_day)} / jour
+            </p>
+          </div>
+          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
+            {LIBELLES_STATUT_VEHICULE[v.status] || v.status}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Link to={`/admin/vehicules/${v.id}`} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
+            Détail
+          </Link>
+          <Link to={`/admin/vehicules/${v.id}/modifier`} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
+            Modifier
+          </Link>
+          {v.status !== 'published' ? (
+            <button type="button" onClick={() => void onApprove(v.id)} className="rounded-lg bg-[#8c4205] px-2 py-1 text-xs font-semibold text-white">
+              Publier
+            </button>
+          ) : (
+            <button type="button" onClick={() => void onUnpublish(v.id)} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
+              Dépublier
+            </button>
+          )}
+          <button type="button" onClick={() => void onRemove(v.id)} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-500">
+            Suppr.
+          </button>
+        </div>
+      </div>
+    </li>
+  )
+}
+
 function PageHeader({
   title,
   subtitle,
@@ -109,7 +192,7 @@ function Field({
 }
 
 const inputClass =
-  'w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-ink-900 outline-none focus:border-[#0b3d2e]/40'
+  'w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-ink-900 outline-none focus:border-[#8c4205]/40'
 
 type FormState = {
   partner_id: string
@@ -228,13 +311,19 @@ function formToPayload(form: FormState) {
 }
 
 export function AdminVehiclesPage() {
+  const { user } = useAuth()
+  const estSuperAdmin = user?.role === 'super_admin'
   const { categoryLabel, fuelLabel, transmissionLabel, labels } = useCatalog()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [vehicles, setVehicles] = useState<VehicleRow[]>([])
+  const [flotte, setFlotte] = useState<PartnerOption[]>([])
   const [partners, setPartners] = useState<PartnerOption[]>([])
   const [meta, setMeta] = useState({ total: 0, current_page: 1, last_page: 1, per_page: 12 })
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
+  const [creationOuverte, setCreationOuverte] = useState(() => searchParams.get('nouveau') === '1')
+  const [partenairesOuverts, setPartenairesOuverts] = useState<Set<number> | null>(null)
 
   const filters: Filters = useMemo(
     () => ({
@@ -264,6 +353,23 @@ export function AdminVehiclesPage() {
   async function load() {
     setLoading(true)
     try {
+      if (estSuperAdmin) {
+        const { data } = await api.get('/admin/vehicles', { params: { par_partenaire: 1 } })
+        const liste = (data.data || []) as PartnerOption[]
+        const orphelins = (data.sans_partenaire || []) as VehicleRow[]
+        if (orphelins.length > 0) {
+          liste.push({
+            id: -1,
+            manager_name: 'Sans partenaire',
+            status: '',
+            vehicles: orphelins,
+          })
+        }
+        setFlotte(liste)
+        setPartners(liste.filter((p) => p.id > 0))
+        return
+      }
+
       const { data } = await api.get('/admin/vehicles', {
         params: {
           page,
@@ -291,15 +397,29 @@ export function AdminVehiclesPage() {
   }
 
   useEffect(() => {
+    if (estSuperAdmin) return
     void api
       .get('/admin/partners', { params: { per_page: 100 } })
       .then(({ data }) => setPartners(data.data || []))
       .catch(() => undefined)
-  }, [])
+  }, [estSuperAdmin])
 
   useEffect(() => {
+    if (!user) return
     void load().catch(() => undefined)
+  }, [user?.role, estSuperAdmin ? '' : searchParams.toString()])
+
+  useEffect(() => {
+    if (searchParams.get('nouveau') === '1') setCreationOuverte(true)
   }, [searchParams])
+
+  function fermerCreation() {
+    setCreationOuverte(false)
+    if (searchParams.get('nouveau') !== '1') return
+    const next = new URLSearchParams(searchParams)
+    next.delete('nouveau')
+    setSearchParams(next, { replace: true })
+  }
 
   async function approve(id: number) {
     await api.post(`/admin/vehicles/${id}/approve`)
@@ -320,20 +440,80 @@ export function AdminVehiclesPage() {
     await load()
   }
 
+  function correspondVehicule(v: VehicleRow, ignorerRecherche = false) {
+    if (filters.status && v.status !== filters.status) return false
+    if (filters.category && v.category !== filters.category) return false
+    if (filters.transmission && v.transmission !== filters.transmission) return false
+    if (filters.fuel && v.fuel !== filters.fuel) return false
+    if (filters.min_price && v.price_per_day < Number(filters.min_price)) return false
+    if (filters.max_price && v.price_per_day > Number(filters.max_price)) return false
+    if (!ignorerRecherche && filters.q) {
+      const terme = filters.q.toLowerCase()
+      const texte = `${v.brand} ${v.model} ${v.plate_number ?? ''}`.toLowerCase()
+      if (!texte.includes(terme)) return false
+    }
+    return true
+  }
+
+  const groupesPartenaires = flotte
+    .filter((p) => !filters.partner_id || String(p.id) === filters.partner_id)
+    .map((p) => {
+      const nomCorrespond = Boolean(filters.q) && partnerName(p).toLowerCase().includes(filters.q.toLowerCase())
+      const voitures = (p.vehicles || []).filter((v) => correspondVehicule(v, nomCorrespond))
+      return {
+        partenaire: p,
+        publiees: voitures.filter((v) => v.status === 'published'),
+        nonPubliees: voitures.filter((v) => v.status !== 'published'),
+        total: voitures.length,
+      }
+    })
+    .filter((g) => {
+      const filtreMetier = Boolean(
+        filters.status || filters.category || filters.transmission || filters.fuel || filters.min_price || filters.max_price || filters.q,
+      )
+      if (!filtreMetier) return true
+      const nomCorrespond = Boolean(filters.q) && partnerName(g.partenaire).toLowerCase().includes(filters.q.toLowerCase())
+      return g.total > 0 || nomCorrespond
+    })
+
+  const partenairesVisibles = partenairesOuverts ?? new Set(groupesPartenaires[0] ? [groupesPartenaires[0].partenaire.id] : [])
+
+  function basculerPartenaire(id: number) {
+    setPartenairesOuverts(() => {
+      const suivant = new Set(partenairesVisibles)
+      if (suivant.has(id)) suivant.delete(id)
+      else suivant.add(id)
+      return suivant
+    })
+  }
+
+  function toutDeplierPartenaires() {
+    setPartenairesOuverts(new Set(groupesPartenaires.map((g) => g.partenaire.id)))
+  }
+
+  function toutPlierPartenaires() {
+    setPartenairesOuverts(new Set())
+  }
+
   const categories = Object.entries(labels.categories)
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
       <PageHeader
         title="Véhicules"
-        subtitle="Créez, consultez, modifiez ou dépubliez les offres visibles sur le site."
+        subtitle={
+          estSuperAdmin
+            ? 'Chaque partenaire, avec ses voitures déjà publiées et celles créées mais pas encore en ligne.'
+            : 'Créez, consultez, modifiez ou dépubliez les offres visibles sur le site.'
+        }
         action={
-          <Link
-            to="/admin/vehicules/nouveau"
-            className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#0a3427]"
+          <button
+            type="button"
+            onClick={() => setCreationOuverte(true)}
+            className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806]"
           >
             Ajouter un véhicule
-          </Link>
+          </button>
         }
       />
 
@@ -438,7 +618,7 @@ export function AdminVehiclesPage() {
               onClick={() => patchParams({ status: value })}
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                 filters.status === value
-                  ? 'bg-[#0b3d2e] text-white'
+                  ? 'bg-[#8c4205] text-white'
                   : 'border border-black/10 bg-white text-ink-700 hover:bg-[#f4f5f4]'
               }`}
             >
@@ -448,6 +628,31 @@ export function AdminVehiclesPage() {
         </div>
       </div>
 
+      {estSuperAdmin ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-ink-500">
+            {groupesPartenaires.length} partenaire{groupesPartenaires.length > 1 ? 's' : ''}
+            {' · '}
+            {groupesPartenaires.reduce((n, g) => n + g.publiees.length, 0)} publiée
+            {groupesPartenaires.reduce((n, g) => n + g.publiees.length, 0) > 1 ? 's' : ''}
+            {' · '}
+            {groupesPartenaires.reduce((n, g) => n + g.nonPubliees.length, 0)} pas encore publiée
+            {groupesPartenaires.reduce((n, g) => n + g.nonPubliees.length, 0) > 1 ? 's' : ''}
+          </p>
+          <div className="flex items-center gap-2">
+            <BoutonToutDeplier
+              sens="ouvrir"
+              onClick={toutDeplierPartenaires}
+              desactive={loading || groupesPartenaires.length === 0}
+            />
+            <BoutonToutDeplier
+              sens="fermer"
+              onClick={toutPlierPartenaires}
+              desactive={loading || groupesPartenaires.length === 0}
+            />
+          </div>
+        </div>
+      ) : (
       <div className="mb-3 flex items-center justify-between text-sm text-ink-500">
         <p>
           {meta.total} véhicule{meta.total > 1 ? 's' : ''}
@@ -456,8 +661,107 @@ export function AdminVehiclesPage() {
           Page {meta.current_page} / {meta.last_page}
         </p>
       </div>
+      )}
 
-      {loading ? (
+      {estSuperAdmin ? (
+        loading ? (
+          <div className="rounded-xl border border-black/8 bg-white">
+            <ContentLoader />
+          </div>
+        ) : groupesPartenaires.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-black/12 bg-white p-8 text-center text-ink-500">
+            Aucun partenaire pour ces filtres.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {groupesPartenaires.map((g, index) => {
+              const montrerPubliees = !filters.status || filters.status === 'published'
+              const montrerNonPubliees = !filters.status || filters.status !== 'published'
+              const ouvert = partenairesVisibles.has(g.partenaire.id)
+              return (
+                <section key={g.partenaire.id} className="overflow-hidden rounded-2xl border border-black/8 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => basculerPartenaire(g.partenaire.id)}
+                    aria-expanded={ouvert}
+                    className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-black/[0.02]"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8c4205]/10 text-sm font-bold text-[#8c4205]">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-base font-semibold text-ink-900">
+                        {partnerName(g.partenaire)}
+                      </span>
+                      <span className="mt-0.5 block text-sm text-ink-500">
+                        {g.partenaire.city ? `${g.partenaire.city} · ` : ''}
+                        {g.partenaire.status
+                          ? `${LIBELLES_STATUT_PARTENAIRE[g.partenaire.status] || g.partenaire.status} · `
+                          : ''}
+                        {g.publiees.length} publiée{g.publiees.length > 1 ? 's' : ''}
+                        {' · '}
+                        {g.nonPubliees.length} pas encore publiée{g.nonPubliees.length > 1 ? 's' : ''}
+                      </span>
+                    </span>
+                    <span
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-black/10 text-[#8c4205]"
+                      title={ouvert ? 'Plier' : 'Déplier'}
+                    >
+                      <IconeChevron ouvert={ouvert} />
+                    </span>
+                  </button>
+                  {ouvert && (
+                  <div className={`grid gap-px border-t border-black/8 bg-black/8 ${montrerPubliees && montrerNonPubliees ? 'lg:grid-cols-2' : ''}`}>
+                    {montrerPubliees && (
+                      <div className="bg-white p-4">
+                        <h3 className="mb-3 text-sm font-semibold text-ink-800">Publiées sur la plateforme</h3>
+                        {g.publiees.length === 0 ? (
+                          <p className="text-sm text-ink-400">Aucune voiture publiée.</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {g.publiees.map((v) => (
+                              <LigneVoiturePartenaire
+                                key={v.id}
+                                v={v}
+                                categoryLabel={categoryLabel}
+                                onApprove={approve}
+                                onUnpublish={unpublish}
+                                onRemove={remove}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                    {montrerNonPubliees && (
+                      <div className="bg-sand-50 p-4">
+                        <h3 className="mb-3 text-sm font-semibold text-ink-800">Créées, pas encore publiées</h3>
+                        {g.nonPubliees.length === 0 ? (
+                          <p className="text-sm text-ink-400">Aucune voiture en attente de publication.</p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {g.nonPubliees.map((v) => (
+                              <LigneVoiturePartenaire
+                                key={v.id}
+                                v={v}
+                                categoryLabel={categoryLabel}
+                                onApprove={approve}
+                                onUnpublish={unpublish}
+                                onRemove={remove}
+                              />
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        )
+      ) : loading ? (
         <div className="rounded-xl border border-black/8 bg-white">
           <ContentLoader />
         </div>
@@ -526,7 +830,7 @@ export function AdminVehiclesPage() {
                       <button
                         type="button"
                         onClick={() => void approve(v.id)}
-                        className="rounded-lg bg-[#0b3d2e] px-2.5 py-1.5 text-xs font-semibold text-white"
+                        className="rounded-lg bg-[#8c4205] px-2.5 py-1.5 text-xs font-semibold text-white"
                       >
                         Publier
                       </button>
@@ -555,7 +859,7 @@ export function AdminVehiclesPage() {
       </div>
       )}
 
-      {meta.last_page > 1 && !loading && (
+      {!estSuperAdmin && meta.last_page > 1 && !loading && (
         <div className="mt-6 flex items-center justify-center gap-2">
           <button
             type="button"
@@ -582,7 +886,7 @@ export function AdminVehiclesPage() {
                   onClick={() => patchParams({ page: String(p) })}
                   className={`min-w-10 rounded-xl px-3 py-2 text-sm font-medium ${
                     p === meta.current_page
-                      ? 'bg-[#0b3d2e] text-white'
+                      ? 'bg-[#8c4205] text-white'
                       : 'border border-black/12 text-ink-700'
                   }`}
                 >
@@ -600,6 +904,24 @@ export function AdminVehiclesPage() {
           </button>
         </div>
       )}
+
+      <FenetreModale
+        ouvert={creationOuverte}
+        titre="Nouveau véhicule"
+        sousTitre="Ajoutez une offre au catalogue — elle apparaîtra sur le site si le statut est « publié »."
+        onFermer={fermerCreation}
+        classePanneau="max-h-[90vh] w-full max-w-5xl"
+      >
+        <VehicleForm
+          mode="create"
+          onAnnuler={fermerCreation}
+          onSubmit={async (payload) => {
+            const { data } = await api.post('/admin/vehicles', payload)
+            fermerCreation()
+            navigate(`/admin/vehicules/${data.data.id}`)
+          }}
+        />
+      </FenetreModale>
     </div>
   )
 }
@@ -608,10 +930,12 @@ function VehicleForm({
   mode,
   initial,
   onSubmit,
+  onAnnuler,
 }: {
   mode: 'create' | 'edit'
   initial?: FormState
   onSubmit: (payload: ReturnType<typeof formToPayload>) => Promise<void>
+  onAnnuler?: () => void
 }) {
   const { labels } = useCatalog()
   const [form, setForm] = useState<FormState>(initial || emptyForm())
@@ -946,39 +1270,33 @@ function VehicleForm({
         <button
           type="submit"
           disabled={saving}
-          className="rounded-xl bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          className="rounded-xl bg-[#8c4205] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
         >
           {saving ? 'Enregistrement…' : mode === 'create' ? 'Créer le véhicule' : 'Enregistrer'}
         </button>
-        <Link
-          to="/admin/vehicules"
-          className="rounded-xl border border-black/12 px-5 py-2.5 text-sm font-medium text-ink-700"
-        >
-          Annuler
-        </Link>
+        {onAnnuler ? (
+          <button
+            type="button"
+            onClick={onAnnuler}
+            className="rounded-xl border border-black/12 px-5 py-2.5 text-sm font-medium text-ink-700"
+          >
+            Annuler
+          </button>
+        ) : (
+          <Link
+            to="/admin/vehicules"
+            className="rounded-xl border border-black/12 px-5 py-2.5 text-sm font-medium text-ink-700"
+          >
+            Annuler
+          </Link>
+        )}
       </div>
     </form>
   )
 }
 
 export function AdminVehicleCreatePage() {
-  const navigate = useNavigate()
-
-  return (
-    <div className="animate-[adminIn_0.45s_ease-out]">
-      <PageHeader
-        title="Nouveau véhicule"
-        subtitle="Ajoutez une offre au catalogue — elle apparaîtra sur le site si le statut est « publié »."
-      />
-      <VehicleForm
-        mode="create"
-        onSubmit={async (payload) => {
-          const { data } = await api.post('/admin/vehicles', payload)
-          navigate(`/admin/vehicules/${data.data.id}`)
-        }}
-      />
-    </div>
-  )
+  return <Navigate to="/admin/vehicules?nouveau=1" replace />
 }
 
 export function AdminVehicleEditPage() {
@@ -1099,7 +1417,7 @@ export function AdminVehicleDetailPage() {
           <div className="flex flex-wrap gap-2">
             <Link
               to={`/admin/vehicules/${vehicle.id}/modifier`}
-              className="rounded-xl bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white"
+              className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white"
             >
               Modifier
             </Link>
