@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CoqueSession } from '../components/layout/CoqueSession'
 import { PublicHeader } from '../components/layout/Header'
@@ -45,6 +45,8 @@ export function SearchPage() {
   const [optionsTri, setOptionsTri] = useState<OptionTri[]>(TRI_PAR_DEFAUT)
   /** null tant que le décompte n’est pas arrivé : on ne grise rien avant la réponse. */
   const [compteurs, setCompteurs] = useState<Record<string, number> | null>(null)
+  /** La frappe dans la recherche ne doit pas remplacer la liste par le spinner. */
+  const rechercheSilencieuse = useRef(false)
 
   useEffect(() => {
     void api.get('/catalog/categories').then(({ data }) => setCategories(data.data || []))
@@ -66,7 +68,13 @@ export function SearchPage() {
   }, [])
 
   useEffect(() => {
-    const t = setTimeout(() => setRechercheDebounce(recherche.trim()), 300)
+    const t = setTimeout(() => {
+      const suivant = recherche.trim()
+      setRechercheDebounce((actuel) => {
+        if (suivant !== actuel) rechercheSilencieuse.current = true
+        return suivant
+      })
+    }, 300)
     return () => clearTimeout(t)
   }, [recherche])
 
@@ -76,7 +84,10 @@ export function SearchPage() {
   }, [category, sort, rechercheDebounce, parPage])
 
   useEffect(() => {
-    setLoading(true)
+    let annule = false
+    const silencieux = rechercheSilencieuse.current
+    if (silencieux && page === 1) rechercheSilencieuse.current = false
+    if (!silencieux) setLoading(true)
     const query: Record<string, string | number> = {
       sort,
       page,
@@ -102,6 +113,7 @@ export function SearchPage() {
     void api
       .get('/vehicles/search', { params: query })
       .then(({ data }) => {
+        if (annule) return
         setVehicles(data.data || [])
         setMeta({
           total: data.meta?.total ?? 0,
@@ -114,10 +126,16 @@ export function SearchPage() {
         setCompteurs(Object.fromEntries(liste.map((c) => [c.slug, c.disponibles])))
       })
       .catch(() => {
+        if (annule) return
         setVehicles([])
         setCompteurs({})
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (!annule) setLoading(false)
+      })
+    return () => {
+      annule = true
+    }
     // params intentionnellement hors deps : on synchronise l’URL depuis l’état local.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, sort, page, parPage, rechercheDebounce])
@@ -203,7 +221,7 @@ export function SearchPage() {
                 value={recherche}
                 onChange={(e) => setRecherche(e.target.value)}
                 placeholder="Rechercher une marque, un modèle…"
-                className="w-full min-w-[12rem] flex-1 rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm outline-none ring-forest-600 focus:ring-2 sm:max-w-xs"
+                className="w-56 shrink-0 rounded-xl border border-sand-200 bg-white px-3 py-2 text-sm outline-none ring-forest-600 focus:ring-2"
                 aria-label="Rechercher un véhicule"
               />
               <select

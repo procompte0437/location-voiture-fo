@@ -21,6 +21,9 @@
   --color-marque-500: #f0a038;
   --color-marque-encre: #005038;
   --color-marque-sombre: #021910;
+  /* Voile clair du vert encre : fond de sidebar, comme un aplat léger de la charte. */
+  --color-marque-voile: #e7f3ec;
+  --color-marque-voile-actif: #d3e8dc;
   --color-sand-50: #f7f4ef;
   --color-sand-100: #efe8dc;
   --color-sand-200: #e2d5c2;

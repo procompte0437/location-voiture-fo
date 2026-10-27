@@ -1721,7 +1721,7 @@ export function PageAidePartenaire() {
     },
     {
       q: 'Qui contacter en cas de litige ?',
-      a: 'Écrivez à support@locagabon.ga ou utilisez le canal WhatsApp indiqué dans vos CGU partenaires.',
+      a: 'Écrivez à support@doto241.com ou utilisez le canal WhatsApp indiqué dans vos CGU partenaires.',
     },
   ]
 

@@ -17,7 +17,7 @@ const LIENS_LEGAUX = [
   { vers: '/plan-du-site', libelle: 'Plan du site' },
 ] as const
 
-const EMAIL_SUPPORT = 'support@locagabon.ga'
+const EMAIL_SUPPORT = 'support@doto241.com'
 const TELEPHONE_AFFICHE = '+241 01 12 34 56'
 const TELEPHONE_LIEN = 'tel:+24101123456'
 
@@ -27,10 +27,10 @@ const TELEPHONE_LIEN = 'tel:+24101123456'
  */
 const RESEAUX_SOCIAUX = [
   { nom: 'WhatsApp', href: 'https://wa.me/24104371973' },
-  { nom: 'Facebook', href: 'https://www.facebook.com/' },
-  { nom: 'TikTok', href: 'https://www.tiktok.com/@locagabon' },
-  { nom: 'Instagram', href: 'https://www.instagram.com/locagabon' },
-  { nom: 'Twitter', href: 'https://x.com/locagabon' },
+  { nom: 'Facebook', href: 'https://www.facebook.com/doto241' },
+  { nom: 'TikTok', href: 'https://www.tiktok.com/@doto241' },
+  { nom: 'Instagram', href: 'https://www.instagram.com/doto241' },
+  { nom: 'Twitter', href: 'https://x.com/doto241' },
 ] as const
 
 type NomReseau = (typeof RESEAUX_SOCIAUX)[number]['nom']
@@ -74,10 +74,8 @@ function IconeReseau({ nom }: { nom: NomReseau }) {
 }
 
 /**
- * Pied de page en trois colonnes sur fond sombre : marque et réseaux,
- * navigation, contact, puis le copyright. Les coordonnées reprennent le
- * téléphone de l’accueil et l’e-mail du support déjà utilisés sur les pages
- * institutionnelles.
+ * Pied de page : marque, navigation, puis contact et réseaux face à face.
+ * Les coordonnées reprennent le téléphone de l’accueil et l’e-mail du support.
  */
 export function PiedDePage() {
   const annee = new Date().getFullYear()
@@ -85,7 +83,7 @@ export function PiedDePage() {
   return (
     <footer className="bg-marque-sombre text-white">
       <div className="mx-auto max-w-7xl px-6 py-14 md:px-10 md:py-16">
-        <div className="grid gap-12 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.85fr)_minmax(0,1fr)] md:gap-10">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-10">
           <div>
             <Link to="/" className="inline-flex" aria-label="DOTO — accueil">
               <LogoDoto className="h-[4.5rem] w-[4.5rem]" />
@@ -94,25 +92,6 @@ export function PiedDePage() {
             <p className="mt-3 text-sm leading-relaxed text-white/75">
               Réservation · Partenaires vérifiés · Agences · Support
             </p>
-            <div className="mt-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Réseaux</p>
-              <ul className="mt-4 flex flex-wrap gap-2.5">
-                {RESEAUX_SOCIAUX.map((reseau) => (
-                  <li key={reseau.nom}>
-                    <a
-                      href={reseau.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={reseau.nom}
-                      title={reseau.nom}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white/85 transition-colors hover:border-white hover:bg-white/10 hover:text-white"
-                    >
-                      <IconeReseau nom={reseau.nom} />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
 
           <nav aria-label="Navigation du pied de page">
@@ -142,6 +121,26 @@ export function PiedDePage() {
                   {EMAIL_SUPPORT}
                 </a>
               </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Réseaux</p>
+            <ul className="mt-5 flex flex-wrap gap-2.5">
+              {RESEAUX_SOCIAUX.map((reseau) => (
+                <li key={reseau.nom}>
+                  <a
+                    href={reseau.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={reseau.nom}
+                    title={reseau.nom}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white/85 transition-colors hover:border-white hover:bg-white/10 hover:text-white"
+                  >
+                    <IconeReseau nom={reseau.nom} />
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>

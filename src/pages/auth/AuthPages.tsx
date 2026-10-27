@@ -12,7 +12,7 @@ export function LoginPage() {
   const redirect = searchParams.get('redirect') || ''
   const emailParam = searchParams.get('email') || ''
 
-  const [email, setEmail] = useState(emailParam || 'client@locagabon.ga')
+  const [email, setEmail] = useState(emailParam || 'client@doto241.com')
   const [password, setPassword] = useState(emailParam ? '' : 'password')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -69,7 +69,7 @@ export function LoginPage() {
           </p>
         ) : (
           <p className="mt-2 text-left text-sm text-ink-500">
-            Démo : client@locagabon.ga / partenaire@locagabon.ga / admin@locagabon.ga — mot de passe
+            Démo : client@doto241.com / partenaire@doto241.com / admin@doto241.com — mot de passe
             : password
           </p>
         )}

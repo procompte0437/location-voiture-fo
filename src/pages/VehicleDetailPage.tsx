@@ -42,7 +42,7 @@ function CoqueFicheVehicule({ children }: { children: ReactNode }) {
     <CoqueSession
       visiteur={
         <div className="min-h-screen bg-sand-50">
-          <div className="relative z-20 bg-sand-50 text-marque-encre">
+          <div className="sticky top-0 z-40 bg-marque-voile text-marque-encre">
             <PublicHeader />
           </div>
           {contenu}

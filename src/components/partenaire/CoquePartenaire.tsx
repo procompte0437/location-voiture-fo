@@ -157,17 +157,17 @@ export function CoquePartenaire({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col overflow-hidden text-white transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col overflow-hidden text-marque-encre transition-transform duration-300 lg:translate-x-0 ${
           menuOuvert ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="absolute inset-0 bg-[#0c3d30]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(80,180,140,0.22),transparent_55%)]" />
-        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-gold-500/40 to-transparent" />
+        <div className="absolute inset-0 bg-marque-voile" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(240,160,56,0.14),transparent_55%)]" />
+        <div className="absolute inset-y-0 right-0 w-px bg-marque-encre/10" />
 
         <div className="relative flex h-full flex-col px-3 py-5">
           <div className="mb-8 px-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold-400/90">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-ink-500">
               Partenaire
             </p>
             <Link
@@ -178,11 +178,11 @@ export function CoquePartenaire({
               <LogoDoto className="h-12 w-12" />
               DOTO
             </Link>
-            <p className="mt-1 truncate text-xs text-white/50">
+            <p className="mt-1 truncate text-xs text-ink-500">
               {nomPartenaire || user?.name || 'Votre espace pro'}
             </p>
             {statutPartenaire && (
-              <span className="mt-3 inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-gold-400">
+              <span className="mt-3 inline-flex rounded-full border border-marque-encre/15 bg-white/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-marque-encre">
                 {statutPartenaire}
               </span>
             )}
@@ -191,7 +191,7 @@ export function CoquePartenaire({
           <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
             {MENU.map((groupe) => (
               <div key={groupe.titre}>
-                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
                   {groupe.titre}
                 </p>
                 <ul className="space-y-0.5">
@@ -204,8 +204,8 @@ export function CoquePartenaire({
                         className={({ isActive }) =>
                           `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                             isActive
-                              ? 'bg-white/10 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-gold-400'
-                              : 'text-white/70 hover:bg-white/[0.06] hover:text-white'
+                              ? 'bg-marque-voile-actif font-semibold text-marque-encre before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-marque-500'
+                              : 'text-marque-encre/80 hover:bg-white/70 hover:text-marque-encre'
                           }`
                         }
                       >
@@ -219,27 +219,27 @@ export function CoquePartenaire({
             ))}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+          <div className="mt-auto space-y-3 border-t border-marque-encre/10 pt-4">
             <div className="flex items-center gap-3 px-2">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-gold-500/20 text-xs font-bold text-gold-400">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-marque-500/20 text-xs font-bold text-marque-encre">
                 {initiales(nomPartenaire || user?.name)}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{user?.name}</p>
-                <p className="truncate text-[11px] text-white/45">{user?.email}</p>
+                <p className="truncate text-[11px] text-ink-500">{user?.email}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 px-1">
               <Link
                 to="/"
-                className="rounded-lg border border-white/15 px-2 py-2 text-center text-xs font-medium text-white/85 hover:bg-white/10"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-medium text-marque-encre hover:bg-white"
               >
                 Site public
               </Link>
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="rounded-lg border border-white/15 px-2 py-2 text-xs font-medium text-white/85 hover:bg-white/10"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-medium text-marque-encre hover:bg-white"
               >
                 Déconnexion
               </button>

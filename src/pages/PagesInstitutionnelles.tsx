@@ -8,7 +8,7 @@ import { Spinner } from '../components/ui/Spinner'
 import api, { messageErreurApi } from '../lib/api'
 
 const DATE_MISE_A_JOUR = '15 octobre 2026'
-const EMAIL_SUPPORT = 'support@locagabon.ga'
+const EMAIL_SUPPORT = 'support@doto241.com'
 
 const SUJETS_CONTACT = [
   { valeur: 'reservation', libelle: 'Une réservation' },

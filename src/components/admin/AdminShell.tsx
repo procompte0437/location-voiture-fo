@@ -140,8 +140,20 @@ function initials(name?: string) {
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const [ouvertMobile, setOuvertMobile] = useState(false)
+  // Sur grand écran la barre reste visible, et peut être repliée pour élargir le contenu.
+  const [sidebarOuverte, setSidebarOuverte] = useState(true)
   const location = useLocation()
+
+  function fermerSidebar() {
+    setOuvertMobile(false)
+    setSidebarOuverte(false)
+  }
+
+  function ouvrirSidebar() {
+    setOuvertMobile(true)
+    setSidebarOuverte(true)
+  }
 
   async function seDeconnecter() {
     await logout()
@@ -164,7 +176,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-black/8 bg-white px-4 py-3 lg:hidden">
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={ouvrirSidebar}
           className="rounded-lg bg-[#8c4205] px-3 py-2 text-sm font-semibold text-white"
         >
           Menu
@@ -176,33 +188,35 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <span className="text-xs text-ink-500">Admin</span>
       </div>
 
-      {open && (
+      {ouvertMobile && (
         <button
           type="button"
           aria-label="Fermer le menu"
           className="fixed inset-0 z-40 bg-black/30 lg:hidden"
-          onClick={() => setOpen(false)}
+          onClick={() => setOuvertMobile(false)}
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col bg-[#3d1c02] text-white transition-transform duration-300 ease-out lg:translate-x-0 ${
-          open ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-marque-encre/10 bg-marque-voile text-marque-encre transition-transform duration-300 ease-out ${
+          ouvertMobile ? 'translate-x-0' : '-translate-x-full'
+        } ${sidebarOuverte ? 'lg:translate-x-0' : 'lg:-translate-x-full'}`}
       >
         <div className="flex h-full flex-col px-3 py-5">
           <div className="mb-7 flex items-center gap-3 px-2">
             <LogoDoto className="h-12 w-12" />
             <div className="min-w-0">
-              <Link to="/admin" className="block truncate text-base font-semibold" onClick={() => setOpen(false)}>
+              <Link to="/admin" className="block truncate text-base font-semibold" onClick={() => setOuvertMobile(false)}>
                 DOTO
               </Link>
-              <p className="text-[11px] text-white/50">Console super admin</p>
+              <p className="text-[11px] text-ink-500">Console super admin</p>
             </div>
             <button
               type="button"
-              className="ml-auto rounded-lg p-2 text-white/60 hover:bg-white/10 lg:hidden"
-              onClick={() => setOpen(false)}
+              aria-label="Fermer le menu"
+              title="Fermer le menu"
+              className="ml-auto rounded-lg p-2 text-ink-500 hover:bg-white/70"
+              onClick={fermerSidebar}
             >
               ✕
             </button>
@@ -211,7 +225,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
             {menu.map((group) => (
               <div key={group.title}>
-                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
                   {group.title}
                 </p>
                 <ul className="space-y-0.5">
@@ -220,12 +234,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
                       <NavLink
                         to={item.to}
                         end={item.end}
-                        onClick={() => setOpen(false)}
+                        onClick={() => setOuvertMobile(false)}
                         className={({ isActive }) =>
                           `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                             isActive
-                              ? 'bg-white/12 font-semibold text-white before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-white'
-                              : 'text-white/75 hover:bg-white/[0.06] hover:text-white'
+                              ? 'bg-marque-voile-actif font-semibold text-marque-encre before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-marque-500'
+                              : 'text-marque-encre/80 hover:bg-white/70 hover:text-marque-encre'
                           }`
                         }
                       >
@@ -239,14 +253,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
 
-          <div className="mt-auto space-y-3 border-t border-white/10 pt-4">
+          <div className="mt-auto space-y-3 border-t border-marque-encre/10 pt-4">
             <div className="flex items-center gap-3 px-2">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-white/15 text-xs font-bold">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-marque-500/20 text-xs font-bold text-marque-encre">
                 {initials(user?.name)}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{user?.name}</p>
-                <p className="truncate text-[11px] text-white/45">
+                <p className="truncate text-[11px] text-ink-500">
                   {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                 </p>
               </div>
@@ -254,14 +268,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="grid grid-cols-2 gap-2 px-1">
               <Link
                 to="/"
-                className="rounded-lg border border-white/15 px-2 py-2 text-center text-xs font-medium text-white/85 transition hover:bg-white/10"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-medium text-marque-encre transition hover:bg-white"
               >
                 Site public
               </Link>
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="rounded-lg border border-white/15 px-2 py-2 text-xs font-medium text-white/85 transition hover:bg-white/10"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-medium text-marque-encre transition hover:bg-white"
               >
                 Déconnexion
               </button>
@@ -270,10 +284,24 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="lg:pl-[260px]">
+      <div className={`transition-[padding] duration-300 ${sidebarOuverte ? 'lg:pl-[260px]' : 'lg:pl-0'}`}>
         <header className="sticky top-0 z-30 hidden border-b border-black/8 bg-white lg:block">
           <div className="flex items-center justify-between gap-4 px-8 py-3">
-            <p className="text-sm text-ink-500">{hint}</p>
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarOuverte((ouverte) => !ouverte)}
+                aria-label={sidebarOuverte ? 'Fermer le menu' : 'Ouvrir le menu'}
+                title={sidebarOuverte ? 'Fermer le menu' : 'Ouvrir le menu'}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-black/10 text-ink-700 transition hover:bg-black/[0.04]"
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M9 4v16" />
+                </svg>
+              </button>
+              <p className="truncate text-sm text-ink-500">{hint}</p>
+            </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-medium text-ink-900">{user?.name}</p>

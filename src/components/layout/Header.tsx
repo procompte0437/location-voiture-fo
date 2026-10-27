@@ -43,7 +43,7 @@ function BarreNavigation() {
   }
 
   return (
-    <header id="haut" className="relative z-30 shrink-0 border-b border-sand-200 bg-sand-50 text-marque-encre">
+    <header id="haut" className="sticky top-0 z-40 shrink-0 border-b border-marque-encre/10 bg-marque-voile text-marque-encre">
       <div>
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <Link to="/" className="inline-flex shrink-0 items-center gap-2.5" aria-label="DOTO — accueil">
