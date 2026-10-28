@@ -441,7 +441,7 @@ export function AdminReferentielPage() {
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
       <div className="mb-7">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">Référentiel</h1>
           <IconeInformation titre="À quoi sert le référentiel">
             <p>
@@ -749,7 +749,7 @@ export function AdminReferentielPage() {
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-400">
+              <span className="flex flex-wrap items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-400">
                 Code (slug)
                 {ongletActif === 'vehicle_sort' && (
                   <IconeInformation titre="Codes autorisés pour le tri">
@@ -1085,7 +1085,7 @@ function ChampTexte({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-400">
+      <span className="flex flex-wrap items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-400">
         {libelle}
         {aide}
       </span>

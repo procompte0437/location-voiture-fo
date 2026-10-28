@@ -4,6 +4,7 @@ import { useCatalog } from '../../context/CatalogContext'
 import { ContentLoader } from '../ui/Spinner'
 import { formatXaf } from '../../lib/api'
 import type { Vehicle } from '../../types'
+import { TitreEditorial } from './TitreEditorial'
 
 type Categorie = { slug: string; label: string }
 
@@ -33,19 +34,7 @@ function lienModele(v: Vehicle, jours: number) {
   return `/vehicules/${v.id}?${qs.toString()}`
 }
 
-function Titre({ ligne1, ligne2 }: { ligne1: string; ligne2: string }) {
-  return (
-    <div className="text-center">
-      <h2 className="text-4xl font-extrabold tracking-tight text-neutral-950 md:text-5xl">
-        {ligne1}
-        <span className="mt-1 block text-[0.62em] font-bold">{ligne2}</span>
-      </h2>
-      <span className="mx-auto mt-4 block h-[3px] w-14 bg-neutral-950" />
-    </div>
-  )
-}
-
-/** Panneau vert + carrousel : le visiteur règle durée, taille et motorisation avant d’ouvrir une fiche. */
+/** Panneau + carrousel : le visiteur règle durée, taille et motorisation avant d’ouvrir une fiche. */
 export function EstimateurPrix({
   vehicules,
   chargement,
@@ -89,7 +78,7 @@ export function EstimateurPrix({
   return (
     <section id="estimateur" className="scroll-mt-24 bg-white px-4 py-16 md:px-6 md:py-20">
       <div className="mx-auto max-w-7xl">
-        <Titre ligne1="estimez rapidement le prix" ligne2="de votre location" />
+        <TitreEditorial>Estimez rapidement le prix de votre location</TitreEditorial>
 
         <div className="mt-12 grid items-stretch gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <aside className="bg-accent-500 p-6 text-white">

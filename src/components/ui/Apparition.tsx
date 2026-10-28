@@ -28,7 +28,7 @@ export function Apparition({ children, delai = 0, className = '' }: Props) {
         setVisible(true)
         observateur.disconnect()
       },
-      { threshold: 0, rootMargin: '0px 0px -40px 0px' },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
     )
     observateur.observe(element)
     return () => observateur.disconnect()

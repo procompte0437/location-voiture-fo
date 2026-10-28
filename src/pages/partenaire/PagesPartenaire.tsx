@@ -143,56 +143,6 @@ function TuileStat({
   )
 }
 
-/** Landing marketing « Devenir partenaire ». */
-export function PageDevenirPartenaire() {
-  return (
-    <div className="relative flex min-h-screen flex-col">
-      <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage:
-            "linear-gradient(180deg, rgba(6,40,28,0.45) 0%, rgba(6,40,28,0.28) 40%, rgba(6,40,28,0.5) 100%), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=80')",
-        }}
-      />
-      <div className="relative flex flex-1 flex-col">
-        <PublicHeader />
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 md:px-6">
-          <div className="rounded-2xl border border-white/40 bg-white/95 p-8 shadow-xl backdrop-blur-sm md:p-10">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">Espace pro</p>
-            <h1 className="mt-2 font-display text-4xl font-bold text-ink-900 md:text-5xl">
-              Devenir partenaire
-            </h1>
-            <p className="mt-4 text-lg text-ink-700">
-              Agences, entreprises ou particuliers : publiez vos véhicules sur DOTO après validation de
-              votre dossier.
-            </p>
-            <ul className="mt-8 space-y-3 text-ink-700">
-              {[
-                'Inscription ouverte à tous',
-                'Validation sous 48 h ouvrées',
-                'Commission transparente',
-                'Paiement Mobile Money pour vos clients',
-              ].map((element) => (
-                <li key={element} className="flex items-start gap-3">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-500" />
-                  {element}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/partenaire/inscription"
-              className="mt-10 inline-flex rounded-xl bg-forest-900 px-6 py-3.5 font-semibold text-white transition hover:bg-forest-800"
-            >
-              Créer mon compte partenaire
-            </Link>
-          </div>
-        </div>
-        <PiedDePage />
-      </div>
-    </div>
-  )
-}
-
 /** Parcours d’inscription en 3 étapes (compte → dossier → attente). */
 export function PageInscriptionPartenaire() {
   const { user, register, refresh } = useAuth()

@@ -66,7 +66,7 @@ export function BarreEtapesReservation({ etape, onChoisir }: Props) {
                   {index + 1}
                 </button>
                 <span
-                  className={`text-[11px] font-semibold leading-tight sm:text-sm ${
+                  className={`hidden text-[11px] font-semibold leading-tight sm:block sm:text-sm ${
                     courante ? 'text-forest-900' : atteinte ? 'text-forest-700' : 'text-ink-500'
                   }`}
                 >
@@ -76,6 +76,9 @@ export function BarreEtapesReservation({ etape, onChoisir }: Props) {
             )
           })}
         </ol>
+        <p className="mt-3 text-center text-sm font-semibold text-forest-900 sm:hidden">
+          {ETAPES_RESERVATION[courant]?.label}
+        </p>
       </div>
     </nav>
   )

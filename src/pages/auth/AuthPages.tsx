@@ -217,7 +217,7 @@ export function RegisterPage() {
           }}
         />
         <div className="relative flex flex-1 flex-col">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-4 py-10">
             <div className="rounded-2xl border border-white/40 bg-white/95 p-6 text-center shadow-xl backdrop-blur-sm">
               <h1 className="font-display text-3xl font-bold text-forest-950">Créer un compte</h1>
               <p className="mt-2 text-sm text-ink-500">
@@ -250,21 +250,23 @@ export function RegisterPage() {
                 </button>
               </div>
               <form onSubmit={onSubmit} className="mt-5 space-y-3 text-left">
-                <input required placeholder="Nom" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={champ} />
-                <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={champ} />
-                <input placeholder="Téléphone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className={champ} />
-                <input required type="password" placeholder="Mot de passe" autoComplete="new-password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={champ} />
-                <input
-                  required
-                  type="password"
-                  placeholder="Confirmation"
-                  autoComplete="new-password"
-                  value={form.password_confirmation}
-                  onChange={(e) => setForm((f) => ({ ...f, password_confirmation: e.target.value }))}
-                  onBlur={() => setConfirmationSignalee(true)}
-                  aria-invalid={messageConfirmation ? true : undefined}
-                  className={`${champ} ${messageConfirmation ? 'border-red-500 focus:border-red-500' : ''}`}
-                />
+                <div className="grid grid-cols-2 gap-3 [&>input]:min-w-0">
+                  <input required placeholder="Nom" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={champ} />
+                  <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={champ} />
+                  <input placeholder="Téléphone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className={champ} />
+                  <input required type="password" placeholder="Mot de passe" autoComplete="new-password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={champ} />
+                  <input
+                    required
+                    type="password"
+                    placeholder="Confirmation"
+                    autoComplete="new-password"
+                    value={form.password_confirmation}
+                    onChange={(e) => setForm((f) => ({ ...f, password_confirmation: e.target.value }))}
+                    onBlur={() => setConfirmationSignalee(true)}
+                    aria-invalid={messageConfirmation ? true : undefined}
+                    className={`${champ} ${messageConfirmation ? 'border-red-500 focus:border-red-500' : ''}`}
+                  />
+                </div>
                 {messageConfirmation && (
                   <p className="text-sm text-red-700" role="alert">
                     {messageConfirmation}

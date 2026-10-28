@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { RaccourcisFlottants } from './components/layout/RaccourcisFlottants'
 import { AuthProvider } from './context/AuthContext'
 import { CatalogProvider } from './context/CatalogContext'
 import { HomePage } from './pages/HomePage'
@@ -15,7 +16,6 @@ import { DispositionPartenaire } from './components/partenaire/CoquePartenaire'
 import {
   PageAccueilPartenaire,
   PageAidePartenaire,
-  PageDevenirPartenaire,
   PageInscriptionPartenaire,
   PageMesClients,
   PageMesReservations,
@@ -50,10 +50,10 @@ import {
   AdminVehiclesPage,
 } from './pages/admin/AdminVehiclesPages'
 import { FaqPage } from './pages/MiscPages'
+import { PageContact } from './pages/PageContact'
 import {
   PageCharteConfidentialite,
   PageConditionsGenerales,
-  PageContact,
   PagePlanDuSite,
 } from './pages/PagesInstitutionnelles'
 
@@ -79,7 +79,6 @@ function PagesFluides() {
             element={<Navigate to="/connexion?redirect=%2Fmes-reservations" replace />}
           />
           <Route path="/confirmation/:id" element={<ConfirmationPage />} />
-          <Route path="/devenir-partenaire" element={<PageDevenirPartenaire />} />
           <Route path="/partenaire/inscription" element={<PageInscriptionPartenaire />} />
           <Route path="/partenaire" element={<DispositionPartenaire />}>
             <Route index element={<PageAccueilPartenaire />} />
@@ -126,6 +125,7 @@ export default function App() {
       <CatalogProvider>
       <BrowserRouter>
         <PagesFluides />
+        <RaccourcisFlottants />
       </BrowserRouter>
       </CatalogProvider>
     </AuthProvider>

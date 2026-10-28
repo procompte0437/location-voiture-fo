@@ -1,13 +1,38 @@
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import api, { messageErreurApi } from '../../lib/api'
 import { LogoDoto } from './LogoDoto'
 
-/** Pages publiques de la colonne Navigation. */
-const LIENS_NAVIGATION = [
-  { vers: '/vehicules', libelle: 'Véhicules' },
-  { vers: '/#agences', libelle: 'Agences' },
-  { vers: '/devenir-partenaire', libelle: 'Professionnels' },
-  { vers: '/faq', libelle: 'Aide' },
-  { vers: '/contact', libelle: 'Contact' },
+const COLONNES = [
+  {
+    titre: 'Entreprise',
+    liens: [
+      { vers: '/faq', libelle: 'Aide' },
+      { vers: '/vehicules', libelle: 'Véhicules' },
+      { vers: '/#agences', libelle: 'Agences' },
+      { vers: '/inscription', libelle: 'Devenir partenaire' },
+      { vers: '/contact', libelle: 'Contact' },
+    ],
+  },
+  {
+    titre: 'Services',
+    liens: [
+      { vers: '/vehicules', libelle: 'Comparer les offres' },
+      { vers: '/#agences', libelle: 'Retrait en agence' },
+      { vers: '/vehicules', libelle: 'Livraison' },
+      { vers: '/#estimateur', libelle: 'Estimer un prix' },
+      { vers: '/faq', libelle: 'Questions fréquentes' },
+    ],
+  },
+  {
+    titre: 'Support',
+    liens: [
+      { vers: '/contact', libelle: 'Nous contacter' },
+      { vers: '/connexion', libelle: 'Espace client' },
+      { vers: '/inscription', libelle: 'Créer un compte' },
+      { vers: '/faq', libelle: 'Aide' },
+    ],
+  },
 ] as const
 
 /** Pages juridiques, sous le filet, pour ne pas allonger la colonne Navigation. */
@@ -25,7 +50,7 @@ const TELEPHONE_LIEN = 'tel:+24101123456'
  * Profils publics de DOTO. WhatsApp ouvre la conversation sur le numéro
  * communiqué pour la marque ; Facebook pointe vers la page indiquée.
  */
-const RESEAUX_SOCIAUX = [
+export const RESEAUX_SOCIAUX = [
   { nom: 'WhatsApp', href: 'https://wa.me/24104371973' },
   { nom: 'Facebook', href: 'https://www.facebook.com/doto241' },
   { nom: 'TikTok', href: 'https://www.tiktok.com/@doto241' },
@@ -36,7 +61,7 @@ const RESEAUX_SOCIAUX = [
 type NomReseau = (typeof RESEAUX_SOCIAUX)[number]['nom']
 
 /** Glyphes simples, en currentColor, pour rester lisibles sur le fond sombre. */
-function IconeReseau({ nom }: { nom: NomReseau }) {
+export function IconeReseau({ nom }: { nom: NomReseau }) {
   const commun = { viewBox: '0 0 24 24', className: 'h-[18px] w-[18px]', fill: 'currentColor', 'aria-hidden': true } as const
   if (nom === 'WhatsApp') {
     return (
@@ -73,99 +98,163 @@ function IconeReseau({ nom }: { nom: NomReseau }) {
   )
 }
 
+function TitreColonne({ children }: { children: string }) {
+  return (
+    <p className="text-base font-extrabold text-white">
+      {children}
+      <span className="mt-2 block h-0.5 w-8 bg-marque-500" />
+    </p>
+  )
+}
+
 /**
- * Pied de page : marque, navigation, puis contact et réseaux face à face.
- * Les coordonnées reprennent le téléphone de l’accueil et l’e-mail du support.
+ * Pied de page en colonnes, avec une inscription aux actualités.
+ * Le message part par le formulaire de contact déjà en place.
  */
 export function PiedDePage() {
   const annee = new Date().getFullYear()
+  const [email, setEmail] = useState('')
+  const [siteWeb, setSiteWeb] = useState('')
+  const [envoi, setEnvoi] = useState(false)
+  const [message, setMessage] = useState('')
+  const [erreur, setErreur] = useState('')
+
+  async function abonner(evenement: FormEvent) {
+    evenement.preventDefault()
+    setErreur('')
+    setMessage('')
+    setEnvoi(true)
+    try {
+      await api.post('/contact', {
+        nom: 'Abonné DOTO',
+        email: email.trim(),
+        telephone: null,
+        sujet: 'autre',
+        message: 'Inscription aux actualités DOTO depuis le pied de page.',
+        site_web: siteWeb,
+      })
+      setEmail('')
+      setMessage('Votre adresse est enregistrée. Nous vous écrirons à cette adresse.')
+    } catch (err) {
+      setErreur(messageErreurApi(err, 'Inscription impossible. Réessayez dans un instant.'))
+    } finally {
+      setEnvoi(false)
+    }
+  }
 
   return (
     <footer className="bg-marque-sombre text-white">
       <div className="mx-auto max-w-7xl px-6 py-14 md:px-10 md:py-16">
-        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:gap-10">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[auto_1fr_1fr_1fr_minmax(0,1.15fr)] lg:gap-10">
+          <Link to="/" className="inline-flex h-fit" aria-label="DOTO — accueil">
+            <LogoDoto className="h-24 w-24" />
+          </Link>
+
+          {COLONNES.map((colonne) => (
+            <nav key={colonne.titre} aria-label={colonne.titre}>
+              <TitreColonne>{colonne.titre}</TitreColonne>
+              <ul className="mt-4 space-y-2 text-sm text-white/75">
+                {colonne.liens.map((lien) => (
+                  <li key={`${colonne.titre}-${lien.libelle}`}>
+                    <Link to={lien.vers} className="hover:text-white hover:underline">
+                      {lien.libelle}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
+
           <div>
-            <Link to="/" className="inline-flex" aria-label="DOTO — accueil">
-              <LogoDoto className="h-[4.5rem] w-[4.5rem]" />
-            </Link>
-            <p className="mt-6 text-lg font-bold tracking-tight">La location, simplement.</p>
-            <p className="mt-3 text-sm leading-relaxed text-white/75">
-              Réservation · Partenaires vérifiés · Agences · Support
+            <TitreColonne>Restons connectés</TitreColonne>
+            <p className="mt-4 text-sm leading-relaxed text-white/75">
+              Laissez votre adresse pour recevoir les actualités DOTO et les conseils de location.
+            </p>
+            <form onSubmit={abonner} className="mt-4 space-y-3">
+              <label className="sr-only" htmlFor="newsletter-email">
+                Votre adresse e-mail
+              </label>
+              <input
+                id="newsletter-email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="Votre adresse e-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-white px-3 py-2.5 text-sm text-ink-900 outline-none"
+              />
+              <input
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden
+                value={siteWeb}
+                onChange={(e) => setSiteWeb(e.target.value)}
+                className="hidden"
+              />
+              <button
+                type="submit"
+                disabled={envoi}
+                className="w-full bg-marque-500 py-2.5 text-sm font-bold text-ink-900 hover:bg-gold-400 disabled:opacity-60"
+              >
+                {envoi ? 'Envoi…' : "S'abonner"}
+              </button>
+              {message && <p className="text-sm text-marque-voile">{message}</p>}
+              {erreur && (
+                <p className="text-sm text-gold-400" role="alert">
+                  {erreur}
+                </p>
+              )}
+            </form>
+            <p className="mt-4 text-sm text-white/70">
+              <a href={TELEPHONE_LIEN} className="hover:underline">
+                {TELEPHONE_AFFICHE}
+              </a>
+              <span className="mx-2 text-white/30">·</span>
+              <a href={`mailto:${EMAIL_SUPPORT}`} className="hover:underline">
+                {EMAIL_SUPPORT}
+              </a>
             </p>
           </div>
-
-          <nav aria-label="Navigation du pied de page">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Navigation</p>
-            <ul className="mt-5 space-y-2.5 text-[15px]">
-              {LIENS_NAVIGATION.map((lien) => (
-                <li key={lien.vers}>
-                  <Link to={lien.vers} className="transition-colors hover:underline">
-                    {lien.libelle}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Contact</p>
-            <ul className="mt-5 space-y-2.5 text-[15px] leading-relaxed">
-              <li>Libreville, Gabon</li>
-              <li>
-                <a href={TELEPHONE_LIEN} className="font-semibold transition-colors hover:underline">
-                  {TELEPHONE_AFFICHE}
-                </a>
-              </li>
-              <li>
-                <a href={`mailto:${EMAIL_SUPPORT}`} className="transition-colors hover:underline">
-                  {EMAIL_SUPPORT}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Réseaux</p>
-            <ul className="mt-5 flex flex-wrap gap-2.5">
-              {RESEAUX_SOCIAUX.map((reseau) => (
-                <li key={reseau.nom}>
-                  <a
-                    href={reseau.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={reseau.nom}
-                    title={reseau.nom}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white/85 transition-colors hover:border-white hover:bg-white/10 hover:text-white"
-                  >
-                    <IconeReseau nom={reseau.nom} />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
+      </div>
 
-        <div className="mt-12 border-t border-white/15 pt-5">
-          <div className="flex flex-col gap-3 text-xs text-white/70 sm:flex-row sm:items-center sm:justify-between">
-            <p>© {annee} DOTO. Tous droits réservés.</p>
-            <p>Location entre partenaires vérifiés</p>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/55">
-            {LIENS_LEGAUX.map((lien) => (
-              <Link key={lien.vers} to={lien.vers} className="transition-colors hover:underline">
+      <div className="border-t border-white/10 bg-black/25 px-6 py-6 text-center">
+        <p className="text-sm text-white/80">Copyright © DOTO {annee} | Tous droits réservés</p>
+        <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
+          {RESEAUX_SOCIAUX.map((reseau) => (
+            <li key={reseau.nom}>
+              <a
+                href={reseau.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-marque-500 hover:text-gold-400"
+              >
+                <IconeReseau nom={reseau.nom} />
+                {reseau.nom}
+              </a>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-marque-500">
+          {LIENS_LEGAUX.map((lien, index) => (
+            <span key={lien.vers} className="inline-flex items-center gap-3">
+              {index > 0 && <span aria-hidden className="text-white/30">|</span>}
+              <Link to={lien.vers} className="hover:underline">
                 {lien.libelle}
               </Link>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('locagabon:cookies'))
-              }}
-              className="transition-colors hover:underline"
-            >
-              Paramétrage des cookies
-            </button>
-          </div>
+            </span>
+          ))}
+          <span aria-hidden className="text-white/30">|</span>
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('locagabon:cookies'))
+            }}
+            className="hover:underline"
+          >
+            Paramétrage des cookies
+          </button>
         </div>
       </div>
     </footer>

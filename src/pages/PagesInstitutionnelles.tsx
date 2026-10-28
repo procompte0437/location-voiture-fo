@@ -1,22 +1,11 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { PublicHeader } from '../components/layout/Header'
 import { PiedDePage } from '../components/layout/PiedDePage'
 import { IconeInformation } from '../components/ui/IconeInformation'
-import { ListeDeroulanteRecherche } from '../components/ui/ListeDeroulanteRecherche'
-import { Spinner } from '../components/ui/Spinner'
-import api, { messageErreurApi } from '../lib/api'
 
 const DATE_MISE_A_JOUR = '15 octobre 2026'
 const EMAIL_SUPPORT = 'support@doto241.com'
-
-const SUJETS_CONTACT = [
-  { valeur: 'reservation', libelle: 'Une réservation' },
-  { valeur: 'partenaire', libelle: 'Devenir partenaire' },
-  { valeur: 'compte', libelle: 'Mon compte' },
-  { valeur: 'reclamation', libelle: 'Une réclamation' },
-  { valeur: 'autre', libelle: 'Autre demande' },
-]
 
 function CoqueInstitutionnelle({
   titre,
@@ -33,7 +22,7 @@ function CoqueInstitutionnelle({
     <div className="flex min-h-screen flex-col bg-sand-50">
       <PublicHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 md:px-6 md:py-16">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-display text-3xl font-bold text-forest-950 md:text-4xl">{titre}</h1>
           {aide && (
             <IconeInformation titre={aide.titre}>
@@ -238,7 +227,6 @@ const RUBRIQUES_PLAN = [
   {
     titre: 'Partenaires',
     liens: [
-      { vers: '/devenir-partenaire', libelle: 'Devenir partenaire' },
       { vers: '/partenaire/inscription', libelle: 'Inscription partenaire' },
       { vers: '/partenaire', libelle: 'Espace partenaire' },
     ],
@@ -275,150 +263,4 @@ export function PagePlanDuSite() {
   )
 }
 
-type FormulaireContact = {
-  nom: string
-  email: string
-  telephone: string
-  sujet: string
-  message: string
-  site_web: string
-}
 
-const FORMULAIRE_VIDE: FormulaireContact = {
-  nom: '',
-  email: '',
-  telephone: '',
-  sujet: '',
-  message: '',
-  site_web: '',
-}
-
-export function PageContact() {
-  const [formulaire, setFormulaire] = useState<FormulaireContact>(FORMULAIRE_VIDE)
-  const [erreur, setErreur] = useState('')
-  const [envoi, setEnvoi] = useState(false)
-  const [envoye, setEnvoye] = useState(false)
-
-  function maj(champ: keyof FormulaireContact, valeur: string) {
-    setFormulaire((actuel) => ({ ...actuel, [champ]: valeur }))
-  }
-
-  async function envoyer(evenement: FormEvent) {
-    evenement.preventDefault()
-    setErreur('')
-    setEnvoi(true)
-    try {
-      await api.post('/contact', {
-        nom: formulaire.nom.trim(),
-        email: formulaire.email.trim(),
-        telephone: formulaire.telephone.trim() || null,
-        sujet: formulaire.sujet,
-        message: formulaire.message.trim(),
-        site_web: formulaire.site_web,
-      })
-      setEnvoye(true)
-    } catch (err) {
-      setErreur(messageErreurApi(err, 'Envoi impossible. Réessayez dans un instant.'))
-    } finally {
-      setEnvoi(false)
-    }
-  }
-
-  return (
-    <CoqueInstitutionnelle
-      titre="Contactez-nous"
-      aide={{
-        titre: 'Délai de réponse',
-        texte: 'L’équipe DOTO répond à l’adresse indiquée, en général sous 24 heures ouvrées.',
-      }}
-    >
-      <section className="rounded-2xl border border-sand-200 bg-white p-6">
-        <p className="text-sm text-ink-700">
-          Écrivez-nous à{' '}
-          <a href={`mailto:${EMAIL_SUPPORT}`} className="font-medium text-forest-800 underline">
-            {EMAIL_SUPPORT}
-          </a>
-          , ou laissez un message ci-dessous.
-        </p>
-
-        {envoye ? (
-          <p className="mt-6 rounded-xl bg-forest-100 px-4 py-3 text-sm text-forest-900">
-            Votre message a bien été envoyé. Nous vous répondrons à l’adresse indiquée.
-          </p>
-        ) : (
-          <form onSubmit={(evenement) => void envoyer(evenement)} className="relative mt-6 space-y-4">
-            <label className="block text-sm font-medium text-ink-900">
-              Nom
-              <input
-                required
-                value={formulaire.nom}
-                onChange={(evenement) => maj('nom', evenement.target.value)}
-                autoComplete="name"
-                className="mt-1.5 w-full rounded-xl border border-sand-200 px-4 py-3 font-normal"
-              />
-            </label>
-            <label className="block text-sm font-medium text-ink-900">
-              E-mail
-              <input
-                required
-                type="email"
-                value={formulaire.email}
-                onChange={(evenement) => maj('email', evenement.target.value)}
-                autoComplete="email"
-                className="mt-1.5 w-full rounded-xl border border-sand-200 px-4 py-3 font-normal"
-              />
-            </label>
-            <label className="block text-sm font-medium text-ink-900">
-              Téléphone <span className="font-normal text-ink-500">(facultatif)</span>
-              <input
-                value={formulaire.telephone}
-                onChange={(evenement) => maj('telephone', evenement.target.value)}
-                autoComplete="tel"
-                className="mt-1.5 w-full rounded-xl border border-sand-200 px-4 py-3 font-normal"
-              />
-            </label>
-            <div className="text-sm font-medium text-ink-900">
-              <span className="mb-1.5 block">Sujet</span>
-              <ListeDeroulanteRecherche
-                valeur={formulaire.sujet}
-                onChange={(valeur) => maj('sujet', valeur)}
-                options={SUJETS_CONTACT}
-                placeholder="Choisir un sujet"
-                requis
-                libelle="Sujet"
-              />
-            </div>
-            <label className="block text-sm font-medium text-ink-900">
-              Message
-              <textarea
-                required
-                minLength={20}
-                rows={6}
-                value={formulaire.message}
-                onChange={(evenement) => maj('message', evenement.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-sand-200 px-4 py-3 font-normal"
-              />
-            </label>
-            <input
-              tabIndex={-1}
-              autoComplete="off"
-              aria-hidden
-              value={formulaire.site_web}
-              onChange={(evenement) => maj('site_web', evenement.target.value)}
-              className="absolute h-px w-px opacity-0"
-            />
-            {erreur && <p className="text-sm text-red-700">{erreur}</p>}
-            <button
-              type="submit"
-              disabled={envoi}
-              className="inline-flex items-center gap-2 rounded-xl bg-forest-800 px-5 py-3 font-semibold text-white disabled:opacity-70"
-            >
-              {envoi && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}
-              {envoi ? 'Envoi…' : 'Envoyer le message'}
-            </button>
-          </form>
-        )}
-      </section>
-    </CoqueInstitutionnelle>
-  )
-}
