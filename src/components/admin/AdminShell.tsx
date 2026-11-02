@@ -225,7 +225,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <nav className="flex-1 space-y-5 overflow-y-auto pb-4">
             {menu.map((group) => (
               <div key={group.title}>
-                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+                <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-ink-500">
                   {group.title}
                 </p>
                 <ul className="space-y-0.5">
@@ -236,9 +236,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
                         end={item.end}
                         onClick={() => setOuvertMobile(false)}
                         className={({ isActive }) =>
-                          `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                          `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${
                             isActive
-                              ? 'bg-marque-voile-actif font-semibold text-marque-encre before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-marque-500'
+                              ? 'bg-marque-voile-actif text-marque-encre before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-marque-500'
                               : 'text-marque-encre/80 hover:bg-white/70 hover:text-marque-encre'
                           }`
                         }
@@ -259,7 +259,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 {initials(user?.name)}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{user?.name}</p>
+                <p className="truncate text-sm font-bold">{user?.name}</p>
                 <p className="truncate text-[11px] text-ink-500">
                   {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                 </p>
@@ -268,14 +268,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <div className="grid grid-cols-2 gap-2 px-1">
               <Link
                 to="/"
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-medium text-marque-encre transition hover:bg-white"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-bold text-marque-encre transition hover:bg-white"
               >
                 Site public
               </Link>
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-medium text-marque-encre transition hover:bg-white"
+                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-bold text-marque-encre transition hover:bg-white"
               >
                 Déconnexion
               </button>

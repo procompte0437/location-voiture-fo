@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { BoutonToutDeplier, IconeChevron } from '../../components/ui/IconeDepliage'
 import { FenetreModale } from '../../components/ui/FenetreModale'
-import { ContentLoader } from '../../components/ui/Spinner'
-import api, { formatXaf } from '../../lib/api'
+import { IconeInformation } from '../../components/ui/IconeInformation'
+import { ListeDeroulanteRecherche } from '../../components/ui/ListeDeroulanteRecherche'
+import { SpinnerPourcentage } from '../../components/ui/Spinner'
+import api, { formatXaf, telechargerFichier } from '../../lib/api'
 
 type PartnerOption = {
   id: number
@@ -323,6 +325,11 @@ export function AdminVehiclesPage() {
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState('')
   const [creationOuverte, setCreationOuverte] = useState(() => searchParams.get('nouveau') === '1')
+  const [importOuvert, setImportOuvert] = useState(false)
+  const [partenaireImport, setPartenaireImport] = useState('')
+  const [importEnCours, setImportEnCours] = useState(false)
+  const [erreursImport, setErreursImport] = useState<{ ligne: number; message: string }[]>([])
+  const fichierVehicules = useRef<HTMLInputElement>(null)
   const [partenairesOuverts, setPartenairesOuverts] = useState<Set<number> | null>(null)
 
   const filters: Filters = useMemo(
@@ -495,6 +502,54 @@ export function AdminVehiclesPage() {
     setPartenairesOuverts(new Set())
   }
 
+  async function telechargerModeleVehicules() {
+    setMsg('')
+    try {
+      await telechargerFichier('/admin/vehicules/modele', 'modele-vehicules-doto.xlsx')
+    } catch {
+      setMsg('Téléchargement du modèle impossible.')
+    }
+  }
+
+  async function importerVehicules(evenement: ChangeEvent<HTMLInputElement>) {
+    const fichier = evenement.target.files?.[0]
+    evenement.target.value = ''
+    if (!fichier) return
+    setImportEnCours(true)
+    setMsg('')
+    setErreursImport([])
+    try {
+      const donnees = new FormData()
+      donnees.append('fichier', fichier)
+      if (partenaireImport) donnees.append('partenaire_id', partenaireImport)
+      const { data } = await api.post('/admin/vehicules/import', donnees)
+      const resume = data.data as {
+        crees: number
+        mis_a_jour: number
+        partenaire: string
+        erreurs: { ligne: number; message: string }[]
+      }
+      const erreurs = resume.erreurs || []
+      setErreursImport(erreurs)
+      const ajouts = resume.crees > 1 ? `${resume.crees} véhicules ajoutés` : `${resume.crees} véhicule ajouté`
+      const misesAJour = resume.mis_a_jour > 1 ? `${resume.mis_a_jour} mis à jour` : `${resume.mis_a_jour} mis à jour`
+      setMsg(`${ajouts}, ${misesAJour} pour ${resume.partenaire}${erreurs.length ? `, ${erreurs.length} ligne(s) ignorée(s)` : ''}.`)
+      if (erreurs.length === 0) setImportOuvert(false)
+      await load()
+    } catch (erreur: unknown) {
+      const axiosErr = erreur as {
+        response?: { data?: { message?: string; errors?: Record<string, string[]> } }
+      }
+      setMsg(
+        axiosErr.response?.data?.errors?.partenaire_id?.[0] ||
+          axiosErr.response?.data?.message ||
+          'Import de la base véhicules impossible.',
+      )
+    } finally {
+      setImportEnCours(false)
+    }
+  }
+
   const categories = Object.entries(labels.categories)
 
   return (
@@ -507,13 +562,28 @@ export function AdminVehiclesPage() {
             : 'Créez, consultez, modifiez ou dépubliez les offres visibles sur le site.'
         }
         action={
-          <button
-            type="button"
-            onClick={() => setCreationOuverte(true)}
-            className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806]"
-          >
-            Ajouter un véhicule
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {estSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErreursImport([])
+                  setPartenaireImport(filters.partner_id)
+                  setImportOuvert(true)
+                }}
+                className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-[#f4f5f4]"
+              >
+                Charger une base
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreationOuverte(true)}
+              className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806]"
+            >
+              Ajouter un véhicule
+            </button>
+          </div>
         }
       />
 
@@ -666,7 +736,7 @@ export function AdminVehiclesPage() {
       {estSuperAdmin ? (
         loading ? (
           <div className="rounded-xl border border-black/8 bg-white">
-            <ContentLoader />
+            <SpinnerPourcentage className="py-8" />
           </div>
         ) : groupesPartenaires.length === 0 ? (
           <div className="rounded-xl border border-dashed border-black/12 bg-white p-8 text-center text-ink-500">
@@ -763,7 +833,7 @@ export function AdminVehiclesPage() {
         )
       ) : loading ? (
         <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
+          <SpinnerPourcentage className="py-8" />
         </div>
       ) : vehicles.length === 0 ? (
         <div className="rounded-xl border border-dashed border-black/12 bg-white p-8 text-center text-ink-500">
@@ -922,6 +992,74 @@ export function AdminVehiclesPage() {
           }}
         />
       </FenetreModale>
+
+      {estSuperAdmin && (
+        <FenetreModale
+          ouvert={importOuvert}
+          titre="Charger une base véhicules"
+          sousTitre="Le modèle contient tous les véhicules en base et leur propriétaire. Modifiez-le, puis réimportez-le."
+          onFermer={() => setImportOuvert(false)}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-ink-800">Partenaire</p>
+              <IconeInformation titre="Comment le fichier est rattaché">
+                <p>
+                  Le fichier indique le propriétaire de chaque véhicule. S’il est vide, la ligne est rattachée
+                  au partenaire choisi ici.
+                </p>
+                <p>
+                  Une immatriculation déjà connue remplace le véhicule. Une immatriculation nouvelle le crée
+                  pour le propriétaire indiqué.
+                </p>
+              </IconeInformation>
+            </div>
+              <ListeDeroulanteRecherche
+              valeur={partenaireImport}
+              onChange={setPartenaireImport}
+              libelle="Partenaire propriétaire"
+              placeholder="Choisir le partenaire…"
+              options={partners.map((partenaire) => ({
+                valeur: String(partenaire.id),
+                libelle: partnerName(partenaire),
+              }))}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void telechargerModeleVehicules()}
+                className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-[#f4f5f4]"
+              >
+                Télécharger le modèle
+              </button>
+              <button
+                type="button"
+                disabled={importEnCours}
+                onClick={() => fichierVehicules.current?.click()}
+                className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806] disabled:opacity-60"
+              >
+                {importEnCours ? 'Import…' : 'Importer le fichier'}
+              </button>
+              <input
+                ref={fichierVehicules}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={(evenement) => void importerVehicules(evenement)}
+              />
+            </div>
+            {erreursImport.length > 0 && (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-red-700">
+                {erreursImport.slice(0, 8).map((erreur) => (
+                  <li key={`${erreur.ligne}-${erreur.message}`}>
+                    Ligne {erreur.ligne} : {erreur.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </FenetreModale>
+      )}
     </div>
   )
 }
@@ -1326,9 +1464,9 @@ export function AdminVehicleEditPage() {
   if (!initial) {
     return (
       <div>
-        <PageHeader title="Modifier le véhicule" subtitle="Chargement de la fiche." />
+        <PageHeader title="Modifier le véhicule" subtitle="La fiche s’affiche dès qu’elle est prête." />
         <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
+          <SpinnerPourcentage className="py-8" />
         </div>
       </div>
     )
@@ -1380,9 +1518,9 @@ export function AdminVehicleDetailPage() {
   if (!vehicle) {
     return (
       <div>
-        <PageHeader title="Fiche véhicule" subtitle="Chargement des informations." />
+        <PageHeader title="Fiche véhicule" subtitle="Les informations du véhicule arrivent dans ce bloc." />
         <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
+          <SpinnerPourcentage className="py-8" />
         </div>
       </div>
     )

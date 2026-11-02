@@ -204,6 +204,7 @@ const RUBRIQUES_PLAN = [
     liens: [
       { vers: '/', libelle: 'Accueil' },
       { vers: '/vehicules', libelle: 'Location de voitures' },
+      { vers: '/a-propos', libelle: 'À propos' },
       { vers: '/faq', libelle: 'Aide' },
     ],
   },

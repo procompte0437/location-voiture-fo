@@ -45,7 +45,7 @@ const TEXTES: Record<
       { vers: '/', libelle: 'Accueil' },
       { vers: '/vehicules', libelle: 'Véhicules' },
       { vers: '/#agences', libelle: 'Agences' },
-      { vers: '/faq', libelle: 'Aide' },
+      { vers: '/a-propos', libelle: 'À propos' },
     ],
   },
   en: {
@@ -59,7 +59,7 @@ const TEXTES: Record<
       { vers: '/', libelle: 'Home' },
       { vers: '/vehicules', libelle: 'Vehicles' },
       { vers: '/#agences', libelle: 'Agencies' },
-      { vers: '/faq', libelle: 'Help' },
+      { vers: '/a-propos', libelle: 'About' },
     ],
   },
 }
@@ -147,7 +147,7 @@ function BarreNavigation() {
   useEffect(() => {
     setMenuOuvert(false)
     setLangueOuverte(false)
-  }, [emplacement.pathname, emplacement.hash])
+  }, [emplacement.pathname, emplacement.hash, emplacement.search])
 
   useEffect(() => {
     let actif = window.scrollY > 12
@@ -228,7 +228,7 @@ function BarreNavigation() {
                 {textes.deconnexion}
               </button>
             ) : (
-              <Link to="/inscription" className={lienOutil}>
+              <Link to="/connexion?inscription=1" className={lienOutil}>
                 <IconeRejoindre />
                 {textes.rejoindre}
               </Link>
@@ -365,7 +365,7 @@ function BarreNavigation() {
                 {textes.deconnexion}
               </button>
             ) : (
-              <Link to="/inscription" className="inline-flex items-center gap-2 rounded-md px-3 py-2.5 hover:bg-sand-50">
+              <Link to="/connexion?inscription=1" className="inline-flex items-center gap-2 rounded-md px-3 py-2.5 hover:bg-sand-50">
                 <IconeRejoindre />
                 {textes.rejoindre}
               </Link>

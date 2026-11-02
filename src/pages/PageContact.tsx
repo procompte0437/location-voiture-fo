@@ -13,9 +13,8 @@ const TELEPHONE_AFFICHE = '+241 01 12 34 56'
 const TELEPHONE_LIEN = 'tel:+24101123456'
 const WHATSAPP_AFFICHE = '+241 04 37 19 73'
 const WHATSAPP_LIEN = 'https://wa.me/24104371973'
-const TAILLE_MAX_PIECE = 8 * 1024 * 1024
-
-const SUJETS = [
+/** Sujets d’origine, utilisés seulement tant que le référentiel n’en contient pas. */
+const SUJETS_DEFAUT = [
   { valeur: 'reservation', libelle: 'Une réservation' },
   { valeur: 'partenaire', libelle: 'Devenir partenaire' },
   { valeur: 'compte', libelle: 'Mon compte' },
@@ -274,34 +273,31 @@ function MarquesPubliees() {
 
 function FormulaireMessage() {
   const [formulaire, setFormulaire] = useState<FormulaireContact>(FORMULAIRE_VIDE)
-  const [piece, setPiece] = useState<File | null>(null)
+  const [sujets, setSujets] = useState(SUJETS_DEFAUT)
   const [erreur, setErreur] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [envoye, setEnvoye] = useState(false)
-  const choixFichier = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const delai = window.setTimeout(() => {
+      void api
+        .get('/catalog/references', { params: { type: 'contact_subject' } })
+        .then(({ data }) => {
+          const liste = (data.data || [])
+            .filter((element: { is_active?: boolean }) => element.is_active !== false)
+            .map((element: { slug: string; label: string }) => ({
+              valeur: element.slug,
+              libelle: element.label,
+            }))
+          if (liste.length > 0) setSujets(liste)
+        })
+        .catch(() => undefined)
+    }, 0)
+    return () => window.clearTimeout(delai)
+  }, [])
 
   function maj(champFormulaire: keyof FormulaireContact, valeur: string) {
     setFormulaire((actuel) => ({ ...actuel, [champFormulaire]: valeur }))
-  }
-
-  function choisirPiece(fichier: File | null) {
-    setErreur('')
-    if (!fichier) {
-      setPiece(null)
-      return
-    }
-    const estPdf = fichier.type === 'application/pdf' || fichier.name.toLowerCase().endsWith('.pdf')
-    if (!estPdf) {
-      setPiece(null)
-      setErreur('La pièce jointe doit être un fichier PDF.')
-      return
-    }
-    if (fichier.size > TAILLE_MAX_PIECE) {
-      setPiece(null)
-      setErreur('Le PDF ne doit pas dépasser 8 Mo.')
-      return
-    }
-    setPiece(fichier)
   }
 
   async function envoyer(evenement: FormEvent) {
@@ -309,19 +305,18 @@ function FormulaireMessage() {
     setErreur('')
     setEnvoi(true)
     try {
-      const donnees = new FormData()
-      donnees.append('prenom', formulaire.prenom.trim())
-      donnees.append('nom', formulaire.nom.trim())
-      donnees.append('civilite', formulaire.civilite)
-      donnees.append('pays', formulaire.pays)
-      donnees.append('entreprise', formulaire.entreprise.trim())
-      donnees.append('email', formulaire.email.trim())
-      donnees.append('telephone', formulaire.telephone.trim())
-      donnees.append('sujet', formulaire.sujet)
-      donnees.append('message', formulaire.message.trim())
-      donnees.append('site_web', formulaire.site_web)
-      if (piece) donnees.append('piece', piece)
-      await api.post('/contact', donnees)
+      await api.post('/contact', {
+        prenom: formulaire.prenom.trim(),
+        nom: formulaire.nom.trim(),
+        civilite: formulaire.civilite,
+        pays: formulaire.pays,
+        entreprise: formulaire.entreprise.trim(),
+        email: formulaire.email.trim(),
+        telephone: formulaire.telephone.trim(),
+        sujet: formulaire.sujet,
+        message: formulaire.message.trim(),
+        site_web: formulaire.site_web,
+      })
       setEnvoye(true)
     } catch (err) {
       setErreur(messageErreurApi(err, 'Envoi impossible. Réessayez dans un instant.'))
@@ -438,7 +433,7 @@ function FormulaireMessage() {
             <ListeDeroulanteRecherche
               valeur={formulaire.sujet}
               onChange={(valeur) => maj('sujet', valeur)}
-              options={SUJETS}
+              options={sujets}
               placeholder="Choisir un sujet"
               requis
               libelle="Objet du message"
@@ -456,26 +451,6 @@ function FormulaireMessage() {
               className={champ}
             />
           </label>
-          <div className="text-sm font-medium text-ink-900">
-            <span className="mb-1.5 block">Joindre un fichier PDF</span>
-            <input
-              ref={choixFichier}
-              type="file"
-              accept="application/pdf,.pdf"
-              className="sr-only"
-              onChange={(evenement) => choisirPiece(evenement.target.files?.[0] ?? null)}
-            />
-            <button
-              type="button"
-              onClick={() => choixFichier.current?.click()}
-              className="inline-flex items-center gap-2 rounded-xl bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-marque-encre"
-            >
-              Choisir un fichier
-            </button>
-            <p className="mt-2 text-xs font-normal text-ink-500">
-              {piece ? piece.name : 'Taille maximale : 8 Mo'}
-            </p>
-          </div>
           <input
             tabIndex={-1}
             autoComplete="off"

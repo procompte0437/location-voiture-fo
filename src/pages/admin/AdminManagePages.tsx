@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ContentLoader } from '../../components/ui/Spinner'
+import { Spinner } from '../../components/ui/Spinner'
 import { FenetreModale } from '../../components/ui/FenetreModale'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
@@ -906,13 +906,24 @@ export function AdminBookingsPage() {
 
 export function AdminFinancesPage() {
   const [stats, setStats] = useState<Record<string, number> | null>(null)
+  const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
     void api
       .get('/admin/dashboard')
       .then(({ data }) => setStats(data.data))
       .catch(() => undefined)
+      .finally(() => setChargement(false))
   }, [])
+
+  const cartes: [string, string][] = [
+    ['GMV (volume affaires)', stats ? formatXaf(stats.gmv) : '—'],
+    ['Commissions plateforme', stats ? formatXaf(stats.commissions) : '—'],
+    ['Réservations payées / confirmées', stats ? String(stats.bookings_count) : '—'],
+    ['Partenaires validés', stats ? String(stats.partners_approved) : '—'],
+    ['Véhicules publiés', stats ? String(stats.vehicles_published) : '—'],
+    ['Utilisateurs', stats ? String(stats.users_count) : '—'],
+  ]
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
@@ -920,27 +931,16 @@ export function AdminFinancesPage() {
         title="Finances"
         subtitle="GMV et commissions prélevées (0 % au lancement, configurable ensuite)."
       />
-      {stats ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ['GMV (volume affaires)', formatXaf(stats.gmv)],
-            ['Commissions plateforme', formatXaf(stats.commissions)],
-            ['Réservations payées / confirmées', stats.bookings_count],
-            ['Partenaires validés', stats.partners_approved],
-            ['Véhicules publiés', stats.vehicles_published],
-            ['Utilisateurs', stats.users_count],
-          ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-xl border border-black/8 bg-white p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">{label}</p>
-              <p className="mt-3 text-3xl font-bold text-ink-900">{value}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cartes.map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-black/8 bg-white p-5">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">{label}</p>
+            <p className="mt-3 flex h-9 items-center text-3xl font-bold text-ink-900">
+              {chargement ? <Spinner className="h-6 w-6" /> : value}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Outlet, useOutletContext } from 'react-router-dom'
 import { AdminShell } from '../../components/admin/AdminShell'
-import { ContentLoader } from '../../components/ui/Spinner'
+import { Spinner } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
@@ -38,6 +38,9 @@ type AdminContext = {
   partners: PartnerRow[]
   logs: AuditLog[]
   message: string
+  chargementStats: boolean
+  chargementJournaux: boolean
+  chargementPartenaires: boolean
   approve: (id: number) => Promise<void>
   reject: (id: number) => Promise<void>
   reload: () => Promise<void>
@@ -73,24 +76,40 @@ export function AdminLayout() {
   const [partners, setPartners] = useState<PartnerRow[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [message, setMessage] = useState('')
+  const [chargementStats, setChargementStats] = useState(true)
+  const [chargementJournaux, setChargementJournaux] = useState(true)
+  const [chargementPartenaires, setChargementPartenaires] = useState(true)
 
   async function reload() {
     const estSuperAdmin = user?.role === 'super_admin'
-    const requetes = [
-      api.get('/admin/dashboard'),
-      api.get('/admin/audit-logs'),
-      ...(estSuperAdmin
-        ? [api.get('/admin/partners', { params: { per_page: 100 } })]
-        : []),
-    ]
-    const resultats = await Promise.all(requetes)
-    setStats(resultats[0].data.data)
-    setLogs(resultats[1].data.data || [])
-    if (estSuperAdmin && resultats[2]) {
-      setPartners(resultats[2].data.data || [])
-    } else {
-      setPartners([])
-    }
+    setChargementStats(true)
+    setChargementJournaux(true)
+    setChargementPartenaires(estSuperAdmin)
+
+    const tableau = api
+      .get('/admin/dashboard')
+      .then(({ data }) => setStats(data.data))
+      .catch(() => undefined)
+      .finally(() => setChargementStats(false))
+
+    const journaux = api
+      .get('/admin/audit-logs')
+      .then(({ data }) => setLogs(data.data || []))
+      .catch(() => undefined)
+      .finally(() => setChargementJournaux(false))
+
+    const dossiers = estSuperAdmin
+      ? api
+          .get('/admin/partners', { params: { per_page: 100 } })
+          .then(({ data }) => setPartners(data.data || []))
+          .catch(() => undefined)
+          .finally(() => setChargementPartenaires(false))
+      : Promise.resolve().then(() => {
+          setPartners([])
+          setChargementPartenaires(false)
+        })
+
+    await Promise.all([tableau, journaux, dossiers])
   }
 
   useEffect(() => {
@@ -123,35 +142,32 @@ export function AdminLayout() {
     return <Navigate to="/partenaire" replace />
   }
 
-  // Coque admin toujours visible ; le spinner reste dans les pages / zones de données.
+  // Titre, onglets et formulaire restent visibles. Chaque tableau porte son propre spinner.
   return (
     <AdminShell>
-      {loading ? (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader label="Chargement du compte…" />
-        </div>
-      ) : (
-        <Outlet
-          context={
-            {
+      <Outlet
+        context={
+          {
               stats,
               partners,
               logs,
               message,
+              chargementStats,
+              chargementJournaux,
+              chargementPartenaires,
               approve,
               reject,
               reload,
-            } satisfies AdminContext
-          }
-        />
-      )}
+          } satisfies AdminContext
+        }
+      />
     </AdminShell>
   )
 }
 
 export function AdminDashboardPage() {
   const { user } = useAuth()
-  const { stats, partners, message } = useAdminData()
+  const { stats, partners, message, chargementStats, chargementPartenaires } = useAdminData()
   const partenairesEnAttente = partners.filter((p) => p.status === 'pending')
   const estSuperAdmin = user?.role === 'super_admin'
 
@@ -183,31 +199,27 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      {!stats ? (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: 'Partenaires en attente', value: stats.partners_pending },
-            { label: 'Partenaires validés', value: stats.partners_approved },
-            { label: 'Véhicules publiés', value: stats.vehicles_published },
-            { label: 'GMV', value: formatXaf(stats.gmv) },
-            { label: 'Commissions', value: formatXaf(stats.commissions) },
-            { label: 'Réservations', value: stats.bookings_count },
-            { label: 'Utilisateurs', value: stats.users_count },
-            { label: 'Véhicules à valider', value: stats.vehicles_pending },
-          ].map((card) => (
-            <article key={card.label} className="rounded-xl border border-black/8 bg-white p-5">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">
-                {card.label}
-              </p>
-              <p className="mt-3 text-3xl font-bold text-ink-900">{card.value}</p>
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Partenaires en attente', value: stats ? String(stats.partners_pending) : '—' },
+          { label: 'Partenaires validés', value: stats ? String(stats.partners_approved) : '—' },
+          { label: 'Véhicules publiés', value: stats ? String(stats.vehicles_published) : '—' },
+          { label: 'GMV', value: stats ? formatXaf(stats.gmv) : '—' },
+          { label: 'Commissions', value: stats ? formatXaf(stats.commissions) : '—' },
+          { label: 'Réservations', value: stats ? String(stats.bookings_count) : '—' },
+          { label: 'Utilisateurs', value: stats ? String(stats.users_count) : '—' },
+          { label: 'Véhicules à valider', value: stats ? String(stats.vehicles_pending) : '—' },
+        ].map((card) => (
+          <article key={card.label} className="rounded-xl border border-black/8 bg-white p-5">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-400">
+              {card.label}
+            </p>
+            <p className="mt-3 flex h-9 items-center text-3xl font-bold text-ink-900">
+              {chargementStats ? <Spinner className="h-6 w-6" /> : card.value}
+            </p>
+          </article>
+        ))}
+      </div>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-xl border border-black/8 bg-white p-5">
@@ -217,8 +229,10 @@ export function AdminDashboardPage() {
               Tout voir
             </Link>
           </div>
-          {!stats ? (
-            <ContentLoader />
+          {chargementPartenaires ? (
+            <div className="flex justify-center py-6">
+              <Spinner />
+            </div>
           ) : (
           <div className="space-y-2">
             {partenairesEnAttente.slice(0, 3).map((p) => (
@@ -253,7 +267,7 @@ export function AdminDashboardPage() {
             <div>
               <div className="mb-1 flex justify-between text-xs text-ink-500">
                 <span>Partenaires validés</span>
-                <span>{stats?.partners_approved ?? 0}</span>
+                <span>{chargementStats ? <Spinner className="h-3.5 w-3.5" /> : (stats?.partners_approved ?? 0)}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-black/5">
                 <div
@@ -267,7 +281,7 @@ export function AdminDashboardPage() {
             <div>
               <div className="mb-1 flex justify-between text-xs text-ink-500">
                 <span>Flotte publiée</span>
-                <span>{stats?.vehicles_published ?? 0}</span>
+                <span>{chargementStats ? <Spinner className="h-3.5 w-3.5" /> : (stats?.vehicles_published ?? 0)}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-black/5">
                 <div
@@ -292,7 +306,7 @@ export function AdminDashboardPage() {
 
 export function AdminValidationPage() {
   const { user } = useAuth()
-  const { stats, partners, message, approve, reject, reload } = useAdminData()
+  const { partners, message, chargementPartenaires, approve, reject, reload } = useAdminData()
   const [filtreStatut, setFiltreStatut] = useState('pending')
 
   if (user?.role !== 'super_admin') {
@@ -354,12 +368,7 @@ export function AdminValidationPage() {
         ))}
       </div>
 
-      {!stats ? (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
-        </div>
-      ) : (
-        <TableauDonnees
+      <TableauDonnees
           colonnes={[
             {
               cle: 'company',
@@ -406,6 +415,7 @@ export function AdminValidationPage() {
             `${p.company_name} ${p.manager_name} ${p.city} ${p.type} ${p.owner?.email} ${p.owner?.name} ${p.status}`
           }
           surActualiser={reload}
+          chargement={chargementPartenaires}
           messageVide="Aucun partenaire pour ce filtre."
           actions={(p) =>
             p.status === 'pending' || p.status === 'info_requested' ? (
@@ -430,13 +440,12 @@ export function AdminValidationPage() {
             )
           }
         />
-      )}
     </div>
   )
 }
 
 export function AdminAuditPage() {
-  const { stats, logs } = useAdminData()
+  const { logs, chargementJournaux, reload } = useAdminData()
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
@@ -444,29 +453,38 @@ export function AdminAuditPage() {
         title="Journal d’audit"
         subtitle="Qui · quoi · quand · IP · navigateur / OS · URL — journal immuable"
       />
-      {!stats ? (
-        <div className="rounded-xl border border-black/8 bg-white">
-          <ContentLoader />
-        </div>
-      ) : (
-      <ul className="space-y-2">
-        {logs.map((log) => (
-          <li key={log.id} className="rounded-xl border border-black/8 bg-white px-4 py-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <TableauDonnees
+        colonnes={[
+          {
+            cle: 'action',
+            libelle: 'Action',
+            rendu: (log) => (
               <span className="rounded-md bg-[#8c4205] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white">
                 {log.action}
               </span>
-              <span className="text-xs text-ink-500">
-                {new Date(log.created_at).toLocaleString('fr-FR')}
+            ),
+          },
+          {
+            cle: 'created_at',
+            libelle: 'Quand',
+            rendu: (log) => new Date(log.created_at).toLocaleString('fr-FR'),
+          },
+          {
+            cle: 'acteur',
+            libelle: 'Qui',
+            rendu: (log) => (
+              <span>
+                {log.actor_name || log.actor?.name || 'Anonyme'}
+                {log.actor_email ? ` · ${log.actor_email}` : ''}
+                {log.actor_role ? ` · ${log.actor_role}` : ''}
               </span>
-            </div>
-            <p className="mt-3 text-sm font-medium text-ink-900">
-              {log.actor_name || log.actor?.name || 'Anonyme'}
-              {log.actor_email ? ` · ${log.actor_email}` : ''}
-              {log.actor_role ? ` · ${log.actor_role}` : ''}
-            </p>
-            <p className="mt-1 text-xs text-ink-500">
-              {[
+            ),
+          },
+          {
+            cle: 'contexte',
+            libelle: 'Contexte',
+            rendu: (log) =>
+              [
                 log.ip_address && `IP ${log.ip_address}`,
                 [log.browser, log.browser_version].filter(Boolean).join(' '),
                 log.platform,
@@ -474,22 +492,30 @@ export function AdminAuditPage() {
                 log.http_method,
               ]
                 .filter(Boolean)
-                .join(' · ')}
-            </p>
-            {log.url && (
-              <p className="mt-2 truncate text-xs text-ink-500" title={log.url}>
-                {log.url}
-              </p>
-            )}
-          </li>
-        ))}
-        {logs.length === 0 && (
-          <li className="rounded-xl border border-dashed border-black/12 bg-white p-10 text-center text-ink-500">
-            Aucun événement pour le moment.
-          </li>
-        )}
-      </ul>
-      )}
+                .join(' · ') || '—',
+          },
+          {
+            cle: 'url',
+            libelle: 'URL',
+            rendu: (log) =>
+              log.url ? (
+                <span className="block max-w-xs truncate" title={log.url}>
+                  {log.url}
+                </span>
+              ) : (
+                '—'
+              ),
+          },
+        ]}
+        donnees={logs}
+        cleLigne={(log) => log.id}
+        champsRecherche={(log) =>
+          `${log.action} ${log.actor_name || ''} ${log.actor_email || ''} ${log.ip_address || ''} ${log.url || ''} ${log.browser || ''}`
+        }
+        surActualiser={reload}
+        chargement={chargementJournaux}
+        messageVide="Aucun événement pour le moment."
+      />
     </div>
   )
 }

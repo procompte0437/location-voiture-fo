@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
-import { ContentLoader } from '../../components/ui/Spinner'
 import { PROVINCES_GABON } from '../../data/provincesGabon'
 import api from '../../lib/api'
 
@@ -146,10 +145,6 @@ export function AdminAgencesPage() {
   const agencesFiltrees = filtreProvince
     ? agences.filter((a) => a.province_slug === filtreProvince)
     : agences
-
-  if (chargement && agences.length === 0) {
-    return <ContentLoader label="Chargement des agences…" />
-  }
 
   return (
     <div>

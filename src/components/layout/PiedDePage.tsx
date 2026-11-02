@@ -7,7 +7,7 @@ const COLONNES = [
   {
     titre: 'Entreprise',
     liens: [
-      { vers: '/faq', libelle: 'Aide' },
+      { vers: '/a-propos', libelle: 'À propos' },
       { vers: '/vehicules', libelle: 'Véhicules' },
       { vers: '/#agences', libelle: 'Agences' },
       { vers: '/inscription', libelle: 'Devenir partenaire' },

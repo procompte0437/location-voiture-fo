@@ -51,6 +51,7 @@ import {
 } from './pages/admin/AdminVehiclesPages'
 import { FaqPage } from './pages/MiscPages'
 import { PageContact } from './pages/PageContact'
+import { PageAPropos } from './pages/PageAPropos'
 import {
   PageCharteConfidentialite,
   PageConditionsGenerales,
@@ -108,6 +109,7 @@ function PagesFluides() {
             <Route path="referentiel" element={<AdminReferentielPage />} />
             <Route path="agences" element={<AdminAgencesPage />} />
           </Route>
+          <Route path="/a-propos" element={<PageAPropos />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/charte-de-confidentialite" element={<PageCharteConfidentialite />} />
           <Route path="/conditions-generales" element={<PageConditionsGenerales />} />

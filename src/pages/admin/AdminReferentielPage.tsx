@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
 import { FenetreModale } from '../../components/ui/FenetreModale'
 import { IconeInformation } from '../../components/ui/IconeInformation'
 import { ListeDeroulanteRecherche } from '../../components/ui/ListeDeroulanteRecherche'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
-import api from '../../lib/api'
+import api, { telechargerFichier } from '../../lib/api'
 
 /** Ligne du référentiel générique (marques, tris, carburants, etc.). */
 type ElementReferentiel = {
@@ -41,6 +41,21 @@ type Categorie = {
 type FiltreStatut = 'tous' | 'actif' | 'inactif'
 type FiltreAccueil = 'tous' | 'oui' | 'non'
 
+/** Bilan renvoyé par l’API après lecture du classeur. */
+type ResultatImport = {
+  crees: number
+  mis_a_jour: number
+  erreurs: { ligne: number; message: string }[]
+}
+
+/** Lignes lues dans le classeur, avant enregistrement. */
+type ApercuImport = {
+  feuille: string
+  colonnes: string[]
+  lignes: { ligne: number; cellules: string[] }[]
+  total: number
+}
+
 /** Fiche ouverte depuis une icône : consultation ou modification. */
 type Fiche =
   | { genre: 'referentiel'; mode: 'voir' | 'modifier'; element: ElementReferentiel }
@@ -61,6 +76,7 @@ const LIBELLES_ONGLETS: Record<string, string> = {
   cancellation_policy: 'Politiques d’annulation',
   payment_method: 'Moyens de paiement',
   vehicle_sort: 'Tris catalogue',
+  contact_subject: 'Objets de message',
 }
 
 const TYPES_REFERENTIEL = [
@@ -75,6 +91,7 @@ const TYPES_REFERENTIEL = [
   'cancellation_policy',
   'payment_method',
   'vehicle_sort',
+  'contact_subject',
 ]
 
 const ONGLETS = ['lieux', 'categories', ...TYPES_REFERENTIEL] as const
@@ -113,6 +130,15 @@ export function AdminReferentielPage() {
   const [filtreAccueil, setFiltreAccueil] = useState<FiltreAccueil>('tous')
   const [filtreTypeLieu, setFiltreTypeLieu] = useState('')
   const [fiche, setFiche] = useState<Fiche | null>(null)
+  const [importEnCours, setImportEnCours] = useState(false)
+  const [importOuvert, setImportOuvert] = useState(false)
+  const [ongletImport, setOngletImport] = useState<'fichier' | 'resultat'>('fichier')
+  const [fichierChoisi, setFichierChoisi] = useState<File | null>(null)
+  const [apercu, setApercu] = useState<ApercuImport | null>(null)
+  const [apercuEnCours, setApercuEnCours] = useState(false)
+  const [messageImport, setMessageImport] = useState('')
+  const [resultatImport, setResultatImport] = useState<ResultatImport | null>(null)
+  const fichierExcel = useRef<HTMLInputElement>(null)
   const [formulaire, setFormulaire] = useState({
     label: '',
     slug: '',
@@ -146,6 +172,64 @@ export function AdminReferentielPage() {
     setFiltreAccueil('tous')
     setFiltreTypeLieu('')
     setFiche(null)
+  }
+
+  async function telechargerModele() {
+    setMessage('')
+    try {
+      await telechargerFichier('/admin/vehicules/modele', 'modele-vehicules-doto.xlsx')
+    } catch (erreur: unknown) {
+      setMessage(messageErreur(erreur, 'Téléchargement du modèle impossible'))
+    }
+  }
+
+  async function chargerApercu(fichier: File) {
+    setApercuEnCours(true)
+    setApercu(null)
+    setMessageImport('')
+    try {
+      const donnees = new FormData()
+      donnees.append('fichier', fichier)
+      const { data } = await api.post('/admin/referentiel/apercu', donnees)
+      setApercu(data.data as ApercuImport)
+    } catch (erreur: unknown) {
+      setMessageImport(messageErreur(erreur, 'Impossible de lire ce fichier Excel'))
+    } finally {
+      setApercuEnCours(false)
+    }
+  }
+
+  function choisirFichierExcel(evenement: ChangeEvent<HTMLInputElement>) {
+    const fichier = evenement.target.files?.[0] ?? null
+    evenement.target.value = ''
+    setFichierChoisi(fichier)
+    setApercu(null)
+    setMessageImport('')
+    if (fichier) void chargerApercu(fichier)
+  }
+
+  async function importerExcel() {
+    if (!fichierChoisi) return
+    setImportEnCours(true)
+    setMessageImport('')
+    try {
+      const donnees = new FormData()
+      donnees.append('fichier', fichierChoisi)
+      const { data } = await api.post('/admin/referentiel/import', donnees)
+      const resume = data.data as ResultatImport
+      setResultatImport({
+        crees: resume.crees ?? 0,
+        mis_a_jour: resume.mis_a_jour ?? 0,
+        erreurs: resume.erreurs || [],
+      })
+      setFichierChoisi(null)
+      setOngletImport('resultat')
+      await charger()
+    } catch (erreur: unknown) {
+      setMessageImport(messageErreur(erreur, 'Import Excel impossible'))
+    } finally {
+      setImportEnCours(false)
+    }
   }
 
   /** Recharge uniquement l’onglet affiché : les autres listes ne changent pas en même temps. */
@@ -440,20 +524,186 @@ export function AdminReferentielPage() {
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
-      <div className="mb-7">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">Référentiel</h1>
           <IconeInformation titre="À quoi sert le référentiel">
             <p>
               Toutes les listes déroulantes de la plateforme : lieux, catégories, marques, modèles,
-              carburants, âges conducteur, paiements.
+              carburants, âges conducteur, paiements, objets du message de contact.
             </p>
             <p>Chaque liste se filtre, se pagine et s’actualise depuis son tableau.</p>
+            <p>
+              Le modèle Excel reprend tous les véhicules en base et leur propriétaire. On peut le suivre
+              tel quel, ou modifier une ligne pour remplacer le véhicule à l’import.
+            </p>
           </IconeInformation>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void telechargerModele()}
+            className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-[#f4f5f4]"
+          >
+            Modèle Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMessageImport('')
+              setOngletImport('fichier')
+              setImportOuvert(true)
+            }}
+            className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806]"
+          >
+            Importer un Excel
+          </button>
         </div>
       </div>
 
       {message && <p className="mb-4 text-sm text-ink-600">{message}</p>}
+
+      <FenetreModale
+        ouvert={importOuvert}
+        titre="Importer un Excel"
+        sousTitre="Le modèle contient tous les véhicules en base et leur propriétaire. Une immatriculation déjà connue est remplacée."
+        onFermer={() => setImportOuvert(false)}
+        classePanneau="max-h-[min(90vh,52rem)] w-full max-w-5xl"
+      >
+        <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Import Excel">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={ongletImport === 'fichier'}
+            onClick={() => setOngletImport('fichier')}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${
+              ongletImport === 'fichier' ? 'bg-[#8c4205] text-white' : 'bg-[#f4f5f4] text-ink-800'
+            }`}
+          >
+            Fichier
+          </button>
+          {resultatImport && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={ongletImport === 'resultat'}
+              onClick={() => setOngletImport('resultat')}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${
+                ongletImport === 'resultat' ? 'bg-[#8c4205] text-white' : 'bg-[#f4f5f4] text-ink-800'
+              }`}
+            >
+              Résultat de l’import
+            </button>
+          )}
+        </div>
+
+        {ongletImport === 'fichier' && (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-600">
+              Téléchargez le modèle pour suivre le format de l’application, ou pour remplacer les véhicules déjà enregistrés.
+            </p>
+            <button
+              type="button"
+              onClick={() => void telechargerModele()}
+              className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-[#f4f5f4]"
+            >
+              Télécharger le modèle
+            </button>
+            <input
+              ref={fichierExcel}
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={choisirFichierExcel}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fichierExcel.current?.click()}
+                className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-[#f4f5f4]"
+              >
+                Choisir un fichier
+              </button>
+              <span className="text-sm text-ink-600">{fichierChoisi ? fichierChoisi.name : 'Aucun fichier choisi'}</span>
+            </div>
+            {messageImport && <p className="text-sm text-red-700">{messageImport}</p>}
+            {(apercuEnCours || apercu) && (
+              <div className="space-y-2">
+                {apercu && (
+                  <p className="text-sm text-ink-600">
+                    Feuille « {apercu.feuille} » · {apercu.total} ligne{apercu.total > 1 ? 's' : ''}
+                    {apercu.lignes.length < apercu.total ? ` · ${apercu.lignes.length} affichées` : ''}
+                  </p>
+                )}
+                <TableauDonnees
+                  colonnes={
+                    apercu
+                      ? [
+                          { cle: 'ligne', libelle: 'Ligne', classe: 'w-20' },
+                          ...apercu.colonnes.map((nom, index) => ({
+                            cle: `c${index}`,
+                            libelle: nom,
+                            rendu: (ligne: { cellules: string[] }) => ligne.cellules[index] || '—',
+                          })),
+                        ]
+                      : [{ cle: 'ligne', libelle: 'Ligne' }]
+                  }
+                  donnees={apercu?.lignes ?? ([] as ApercuImport['lignes'])}
+                  cleLigne={(ligne) => ligne.ligne}
+                  champsRecherche={(ligne) => `${ligne.ligne} ${ligne.cellules.join(' ')}`}
+                  surActualiser={() => (fichierChoisi ? chargerApercu(fichierChoisi) : undefined)}
+                  chargement={apercuEnCours}
+                  messageVide="Aucune donnée dans ce fichier."
+                  taillePage={5}
+                />
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={!fichierChoisi || importEnCours}
+              onClick={() => void importerExcel()}
+              className="w-full rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#733806] disabled:opacity-60"
+            >
+              {importEnCours ? 'Import…' : 'Lancer l’import'}
+            </button>
+          </div>
+        )}
+
+        {ongletImport === 'resultat' && resultatImport && (
+          <div className="space-y-4">
+            <ul className="grid gap-2 sm:grid-cols-3">
+              <li className="rounded-xl bg-[#f4f5f4] px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Ajoutées</p>
+                <p className="mt-1 text-2xl font-bold text-ink-900">{resultatImport.crees}</p>
+              </li>
+              <li className="rounded-xl bg-[#f4f5f4] px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Mises à jour</p>
+                <p className="mt-1 text-2xl font-bold text-ink-900">{resultatImport.mis_a_jour}</p>
+              </li>
+              <li className="rounded-xl bg-[#f4f5f4] px-3 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Ignorées</p>
+                <p className="mt-1 text-2xl font-bold text-ink-900">{resultatImport.erreurs.length}</p>
+              </li>
+            </ul>
+            {resultatImport.erreurs.length > 0 ? (
+              <TableauDonnees
+                colonnes={[
+                  { cle: 'ligne', libelle: 'Ligne', classe: 'w-24' },
+                  { cle: 'message', libelle: 'Message' },
+                ]}
+                donnees={resultatImport.erreurs}
+                cleLigne={(ligne) => `${ligne.ligne}-${ligne.message}`}
+                champsRecherche={(ligne) => `${ligne.ligne} ${ligne.message}`}
+                surActualiser={() => undefined}
+                messageVide="Aucune ligne ignorée."
+                taillePage={5}
+              />
+            ) : (
+              <p className="text-sm text-ink-600">Toutes les lignes ont été enregistrées.</p>
+            )}
+          </div>
+        )}
+      </FenetreModale>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {ONGLETS.map((type) => (
@@ -743,7 +993,9 @@ export function AdminReferentielPage() {
                       ? 'Ex. Airtel Money'
                       : ongletActif === 'vehicle_sort'
                         ? 'Ex. Prix croissant'
-                        : 'Ex. Nouveau libellé'
+                        : ongletActif === 'contact_subject'
+                          ? 'Ex. Une réservation'
+                          : 'Ex. Nouveau libellé'
                 }
                 className={CLASSE_CHAMP}
               />

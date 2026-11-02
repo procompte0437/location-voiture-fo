@@ -21,6 +21,8 @@ interface AuthContextValue {
     password: string
     password_confirmation: string
     role?: string
+    company_name?: string
+    city?: string
   }) => Promise<User>
   /** Connexion après création auto du compte à la réservation. */
   appliquerSession: (token: string, user?: User | null) => Promise<void>
@@ -71,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string
     password_confirmation: string
     role?: string
+    company_name?: string
+    city?: string
   }) => {
     const { data } = await api.post('/auth/register', payload)
     localStorage.setItem('locagabon_token', data.token)
