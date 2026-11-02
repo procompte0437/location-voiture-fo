@@ -10,6 +10,7 @@ import { ContentLoader } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
+import { PaiementMobileMoney } from '../../components/reservation/PaiementMobileMoney'
 import api, { formatXaf, messageErreurApi, telechargerFichier } from '../../lib/api'
 import type { Booking } from '../../types'
 
@@ -72,6 +73,15 @@ export function ConfirmationPage() {
   const [booking, setBooking] = useState<Booking | null>(state?.booking || null)
   const [telechargementRecap, setTelechargementRecap] = useState(false)
   const [erreurRecap, setErreurRecap] = useState('')
+  const [paiementEnLigne, setPaiementEnLigne] = useState<{ en_ligne: boolean; moyens: string[] } | null>(null)
+  const [paye, setPaye] = useState(false)
+
+  useEffect(() => {
+    void api
+      .get('/catalog/paiement')
+      .then(({ data }) => setPaiementEnLigne(data.data))
+      .catch(() => setPaiementEnLigne(null))
+  }, [])
 
   const loginEmail = state?.loginEmail || stockes?.loginEmail || ''
   const temporaryPassword = state?.temporaryPassword || stockes?.temporaryPassword || null
@@ -105,6 +115,12 @@ export function ConfirmationPage() {
   }
 
   const reservation = booking
+  const statutAPayer = booking.status === 'locked' || booking.status === 'pending_payment'
+  const aPayerEnLigne =
+    !!paiementEnLigne?.en_ligne &&
+    !!booking.payment_method &&
+    paiementEnLigne.moyens.includes(booking.payment_method) &&
+    (statutAPayer || paye)
   const emailConnexion = loginEmail || (reservation as Booking & { guest_email?: string }).guest_email || ''
   const lienConnexion = user
     ? lienApresReservation(user.role)
@@ -145,13 +161,16 @@ export function ConfirmationPage() {
             Demande transmise
           </h1>
           <p className="mt-4 text-base leading-relaxed text-ink-700">
-            Le loueur doit accepter ou refuser cette demande. Le règlement est suivi par le loueur :
-            aucun paiement en ligne n’est encaissé à cette étape. La caution reste distincte du prix de location.
+            {aPayerEnLigne
+              ? 'Réglez votre location ci-dessous, puis le loueur accepte ou refuse la demande. La caution reste distincte du prix de location.'
+              : 'Le loueur doit accepter ou refuser cette demande. Le règlement est suivi par le loueur : aucun paiement en ligne n’est encaissé à cette étape. La caution reste distincte du prix de location.'}
           </p>
           <p className="mt-5 text-ink-700">
             Référence <strong className="text-forest-800">{booking.reference}</strong>
           </p>
-          <p className="mt-2 text-sm text-ink-500">Statut : {libelleStatut(booking.status)}</p>
+          <p className="mt-2 text-sm text-ink-500">
+            Statut : {paye ? libelleStatut('pending_partner') : libelleStatut(booking.status)}
+          </p>
           {booking.payment_method && (
             <p className="mt-2 text-sm text-ink-700">
               Moyen de paiement :{' '}
@@ -170,6 +189,18 @@ export function ConfirmationPage() {
             {telechargementRecap ? 'Téléchargement…' : 'Télécharger le récapitulatif'}
           </button>
           {erreurRecap && <p className="mt-2 text-sm text-red-800">{erreurRecap}</p>}
+
+          {aPayerEnLigne && booking.payment_method && (
+            <PaiementMobileMoney
+              reservationId={booking.id}
+              reference={booking.reference}
+              moyen={booking.payment_method}
+              libelleMoyen={labels.payment_method?.[booking.payment_method] || booking.payment_method}
+              montant={Number(booking.total_amount)}
+              telephone={user?.phone || (booking as Booking & { guest_phone?: string }).guest_phone}
+              onPaye={() => setPaye(true)}
+            />
+          )}
 
           {showCredentials && temporaryPassword && (
             <div className="mt-6 rounded-xl border border-forest-600/15 bg-forest-50/60 px-4 py-3 text-left text-sm text-ink-700">
