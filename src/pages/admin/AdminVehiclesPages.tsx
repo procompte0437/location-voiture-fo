@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent,
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
+import { BoutonActionCrud } from '../../components/ui/BoutonActionCrud'
 import { BoutonToutDeplier, IconeChevron } from '../../components/ui/IconeDepliage'
 import { FenetreModale } from '../../components/ui/FenetreModale'
 import { IconeInformation } from '../../components/ui/IconeInformation'
@@ -94,65 +95,283 @@ const LIBELLES_STATUT_PARTENAIRE: Record<string, string> = {
   suspended: 'Suspendu',
 }
 
-function LigneVoiturePartenaire({
-  v,
-  categoryLabel,
-  onApprove,
-  onUnpublish,
-  onRemove,
-}: {
-  v: VehicleRow
-  categoryLabel: (categorie: string) => string
+type ActionsFlotte = {
+  onVoir: (vehicule: VehicleRow) => void
+  onModifier: (vehicule: VehicleRow) => void
   onApprove: (id: number) => Promise<void>
   onUnpublish: (id: number) => Promise<void>
   onRemove: (id: number) => Promise<void>
-}) {
-  const image = coverUrl(v)
+}
+
+/** Marque, puis modèle, puis immatriculations : trois niveaux pour suivre la flotte. */
+function regrouperMarques(voitures: VehicleRow[]) {
+  const marques = new Map<string, Map<string, VehicleRow[]>>()
+  for (const vehicule of voitures) {
+    const marque = vehicule.brand.trim() || 'Sans marque'
+    const modele = vehicule.model.trim() || 'Sans modèle'
+    const modeles = marques.get(marque) ?? new Map<string, VehicleRow[]>()
+    const lignes = modeles.get(modele) ?? []
+    lignes.push(vehicule)
+    modeles.set(modele, lignes)
+    marques.set(marque, modeles)
+  }
+  return [...marques.entries()].map(([marque, modeles]) => ({
+    marque,
+    modeles: [...modeles.entries()].map(([modele, lignes]) => ({ modele, lignes })),
+    total: [...modeles.values()].reduce((nombre, lignes) => nombre + lignes.length, 0),
+  }))
+}
+
+function ActionsLigneVehicule({
+  vehicule,
+  onVoir,
+  onModifier,
+  onApprove,
+  onUnpublish,
+  onRemove,
+}: { vehicule: VehicleRow } & ActionsFlotte) {
   return (
-    <li className="flex gap-3 rounded-xl border border-black/8 bg-white p-2.5">
-      <Link to={`/admin/vehicules/${v.id}`} className="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-[#f0f1f0]">
-        {image ? (
-          <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
-        ) : (
-          <span className="grid h-full place-items-center text-[10px] text-ink-400">Pas de photo</span>
-        )}
-      </Link>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <Link to={`/admin/vehicules/${v.id}`} className="font-semibold text-ink-900 hover:underline">
-              {v.brand} {v.model}
-            </Link>
-            <p className="text-xs text-ink-500">
-              {v.plate_number || 'Sans plaque'} · {v.category_info?.label || categoryLabel(v.category)} · {formatXaf(v.price_per_day)} / jour
-            </p>
-          </div>
-          <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
-            {LIBELLES_STATUT_VEHICULE[v.status] || v.status}
+    <div className="flex flex-wrap items-center justify-end gap-1">
+      <BoutonActionCrud variante="voir" libelle="Voir le détail" onClick={() => onVoir(vehicule)} />
+      <BoutonActionCrud variante="modifier" libelle="Modifier" onClick={() => onModifier(vehicule)} />
+      {vehicule.status !== 'published' ? (
+        <button
+          type="button"
+          onClick={() => void onApprove(vehicule.id)}
+          className="rounded-lg bg-[#8c4205] px-2 py-1 text-xs font-semibold text-white"
+        >
+          Publier
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void onUnpublish(vehicule.id)}
+          className="rounded-lg border border-black/10 px-2 py-1 text-xs font-medium text-ink-700"
+        >
+          Dépublier
+        </button>
+      )}
+      <BoutonActionCrud variante="supprimer" libelle="Supprimer" onClick={() => void onRemove(vehicule.id)} />
+    </div>
+  )
+}
+
+/** Plaques d’un même modèle, paginées pour ne pas dérouler des dizaines de lignes d’un coup. */
+function ListeImmatriculations({
+  lignes,
+  actions,
+}: {
+  lignes: VehicleRow[]
+  actions: ActionsFlotte
+}) {
+  const [page, setPage] = useState(1)
+  const taille = 8
+  const totalPages = Math.max(1, Math.ceil(lignes.length / taille))
+  const pageCourante = Math.min(page, totalPages)
+  const visibles = lignes.slice((pageCourante - 1) * taille, pageCourante * taille)
+
+  return (
+    <div>
+      <ul className="divide-y divide-black/6">
+        {visibles.map((vehicule) => (
+          <li key={vehicule.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+            <button type="button" onClick={() => actions.onVoir(vehicule)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+              <span className="h-9 w-12 shrink-0 overflow-hidden rounded-md bg-[#f0f1f0]">
+                {coverUrl(vehicule) ? (
+                  <img src={coverUrl(vehicule)} alt="" className="h-full w-full object-cover" />
+                ) : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-ink-900">{vehicule.plate_number || 'Sans plaque'}</span>
+                <span className="block text-xs text-ink-500">{formatXaf(vehicule.price_per_day)} / jour</span>
+              </span>
+            </button>
+            <span className="rounded-full bg-sand-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
+              {LIBELLES_STATUT_VEHICULE[vehicule.status] || vehicule.status}
+            </span>
+            <ActionsLigneVehicule vehicule={vehicule} {...actions} />
+          </li>
+        ))}
+      </ul>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-black/6 px-3 py-2 text-xs text-ink-500">
+          <span>
+            {lignes.length} immatriculations · page {pageCourante} / {totalPages}
           </span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <Link to={`/admin/vehicules/${v.id}`} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
-            Détail
-          </Link>
-          <Link to={`/admin/vehicules/${v.id}/modifier`} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
-            Modifier
-          </Link>
-          {v.status !== 'published' ? (
-            <button type="button" onClick={() => void onApprove(v.id)} className="rounded-lg bg-[#8c4205] px-2 py-1 text-xs font-semibold text-white">
-              Publier
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={pageCourante <= 1}
+              onClick={() => setPage(pageCourante - 1)}
+              className="rounded-lg border border-black/10 px-2 py-1 disabled:opacity-40"
+            >
+              Précédent
             </button>
-          ) : (
-            <button type="button" onClick={() => void onUnpublish(v.id)} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-700">
-              Dépublier
+            <button
+              type="button"
+              disabled={pageCourante >= totalPages}
+              onClick={() => setPage(pageCourante + 1)}
+              className="rounded-lg border border-black/10 px-2 py-1 disabled:opacity-40"
+            >
+              Suivant
             </button>
-          )}
-          <button type="button" onClick={() => void onRemove(v.id)} className="rounded-lg border border-black/12 px-2 py-1 text-xs font-medium text-ink-500">
-            Suppr.
-          </button>
+          </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Flotte d’un prestataire : marque, puis modèle, puis véhicules en retrait.
+ * Chaque niveau se plie pour que la hiérarchie reste lisible.
+ */
+function FlottePartenaire({
+  publiees,
+  nonPubliees,
+  montrerPubliees,
+  montrerNonPubliees,
+  categoryLabel,
+  actions,
+}: {
+  publiees: VehicleRow[]
+  nonPubliees: VehicleRow[]
+  montrerPubliees: boolean
+  montrerNonPubliees: boolean
+  categoryLabel: (categorie: string) => string
+  actions: ActionsFlotte
+}) {
+  const deuxListes = montrerPubliees && montrerNonPubliees
+  const [onglet, setOnglet] = useState<'publiees' | 'attente'>('publiees')
+  const [recherche, setRecherche] = useState('')
+  const [marquesOuvertes, setMarquesOuvertes] = useState<Set<string>>(new Set())
+  const [modelesOuverts, setModelesOuverts] = useState<Set<string>>(new Set())
+  const ongletAffiche: 'publiees' | 'attente' = !montrerPubliees
+    ? 'attente'
+    : !montrerNonPubliees
+      ? 'publiees'
+      : onglet
+  const liste = (ongletAffiche === 'publiees' ? publiees : nonPubliees).filter((vehicule) => {
+    const terme = recherche.trim().toLowerCase()
+    if (!terme) return true
+    return `${vehicule.brand} ${vehicule.model} ${vehicule.plate_number ?? ''}`.toLowerCase().includes(terme)
+  })
+  const marques = regrouperMarques(liste)
+  const rechercheActive = recherche.trim() !== ''
+
+  function basculer(ensemble: Set<string>, cle: string, definir: (suivant: Set<string>) => void) {
+    const suivant = new Set(ensemble)
+    if (suivant.has(cle)) suivant.delete(cle)
+    else suivant.add(cle)
+    definir(suivant)
+  }
+
+  return (
+    <div className="border-t border-black/8 bg-[#f6f7f6] p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {deuxListes && (
+          <div className="flex rounded-full bg-white p-1" role="group" aria-label="Statut de la flotte">
+            <button
+              type="button"
+              onClick={() => setOnglet('publiees')}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                ongletAffiche === 'publiees' ? 'bg-[#8c4205] text-white' : 'text-ink-700'
+              }`}
+            >
+              Publiées ({publiees.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnglet('attente')}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                ongletAffiche === 'attente' ? 'bg-[#8c4205] text-white' : 'text-ink-700'
+              }`}
+            >
+              Pas encore publiées ({nonPubliees.length})
+            </button>
+          </div>
+        )}
+        <input
+          type="search"
+          value={recherche}
+          onChange={(evenement) => setRecherche(evenement.target.value)}
+          placeholder="Marque, modèle ou plaque de ce prestataire"
+          aria-label="Filtrer la flotte de ce prestataire"
+          className="min-w-[14rem] flex-1 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
+        />
       </div>
-    </li>
+
+      {marques.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-black/12 bg-white px-4 py-6 text-center text-sm text-ink-500">
+          Aucune voiture dans cette liste.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {marques.map((groupeMarque) => {
+            const marqueOuverte = rechercheActive || marquesOuvertes.has(groupeMarque.marque)
+            return (
+              <section key={groupeMarque.marque} className="overflow-hidden rounded-xl border border-black/8 bg-white">
+                <button
+                  type="button"
+                  onClick={() => basculer(marquesOuvertes, groupeMarque.marque, setMarquesOuvertes)}
+                  aria-expanded={marqueOuverte}
+                  className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-black/[0.02]"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-black/10 text-[#8c4205]">
+                    <IconeChevron ouvert={marqueOuverte} />
+                  </span>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#8c4205]/10 text-xs font-bold text-[#8c4205]">
+                    {groupeMarque.marque.slice(0, 1)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-400">Marque</span>
+                    <span className="block truncate text-base font-semibold text-ink-900">{groupeMarque.marque}</span>
+                  </span>
+                  <span className="text-xs text-ink-500">
+                    {groupeMarque.modeles.length} modèle{groupeMarque.modeles.length > 1 ? 's' : ''} · {groupeMarque.total} véhicule{groupeMarque.total > 1 ? 's' : ''}
+                  </span>
+                </button>
+                {marqueOuverte && (
+                  <div className="border-t border-black/6">
+                    {groupeMarque.modeles.map((groupeModele) => {
+                      const cleModele = `${groupeMarque.marque}|||${groupeModele.modele}`
+                      const modeleOuvert = rechercheActive || modelesOuverts.has(cleModele)
+                      const premiere = groupeModele.lignes[0]
+                      return (
+                        <div key={cleModele} className="ml-6 border-l-2 border-[#8c4205]/25">
+                          <button
+                            type="button"
+                            onClick={() => basculer(modelesOuverts, cleModele, setModelesOuverts)}
+                            aria-expanded={modeleOuvert}
+                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-black/[0.02]"
+                          >
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-black/10 text-[#8c4205]">
+                              <IconeChevron ouvert={modeleOuvert} />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-400">Modèle</span>
+                              <span className="block truncate font-semibold text-ink-900">{groupeModele.modele}</span>
+                              <span className="block text-xs text-ink-500">
+                                {premiere.category_info?.label || categoryLabel(premiere.category)} · {formatXaf(premiere.price_per_day)} / jour · {groupeModele.lignes.length} véhicule{groupeModele.lignes.length > 1 ? 's' : ''}
+                              </span>
+                            </span>
+                          </button>
+                          {modeleOuvert && (
+                            <div className="ml-6 border-l border-black/10 bg-[#fafafa]">
+                              <ListeImmatriculations lignes={groupeModele.lignes} actions={actions} />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -316,7 +535,6 @@ export function AdminVehiclesPage() {
   const { user } = useAuth()
   const estSuperAdmin = user?.role === 'super_admin'
   const { categoryLabel, fuelLabel, transmissionLabel, labels } = useCatalog()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [vehicles, setVehicles] = useState<VehicleRow[]>([])
   const [flotte, setFlotte] = useState<PartnerOption[]>([])
@@ -331,6 +549,9 @@ export function AdminVehiclesPage() {
   const [erreursImport, setErreursImport] = useState<{ ligne: number; message: string }[]>([])
   const fichierVehicules = useRef<HTMLInputElement>(null)
   const [partenairesOuverts, setPartenairesOuverts] = useState<Set<number> | null>(null)
+  const [filtresOuverts, setFiltresOuverts] = useState(true)
+  const [fiche, setFiche] = useState<VehicleRow | null>(null)
+  const [modeFiche, setModeFiche] = useState<'voir' | 'modifier'>('voir')
 
   const filters: Filters = useMemo(
     () => ({
@@ -428,15 +649,22 @@ export function AdminVehiclesPage() {
     setSearchParams(next, { replace: true })
   }
 
+  function ouvrirFiche(vehicule: VehicleRow, mode: 'voir' | 'modifier' = 'voir') {
+    setFiche(vehicule)
+    setModeFiche(mode)
+  }
+
   async function approve(id: number) {
     await api.post(`/admin/vehicles/${id}/approve`)
     setMsg(`Véhicule #${id} publié`)
+    setFiche((actuelle) => (actuelle && actuelle.id === id ? { ...actuelle, status: 'published' } : actuelle))
     await load()
   }
 
   async function unpublish(id: number) {
     await api.post(`/admin/vehicles/${id}/unpublish`)
     setMsg(`Véhicule #${id} dépublié`)
+    setFiche((actuelle) => (actuelle && actuelle.id === id ? { ...actuelle, status: 'suspended' } : actuelle))
     await load()
   }
 
@@ -444,6 +672,7 @@ export function AdminVehiclesPage() {
     if (!window.confirm('Supprimer définitivement ce véhicule ?')) return
     await api.delete(`/admin/vehicles/${id}`)
     setMsg(`Véhicule #${id} supprimé`)
+    setFiche((actuelle) => (actuelle && actuelle.id === id ? null : actuelle))
     await load()
   }
 
@@ -551,6 +780,23 @@ export function AdminVehiclesPage() {
   }
 
   const categories = Object.entries(labels.categories)
+  const nbFiltresActifs = [
+    filters.q,
+    filters.status,
+    filters.category,
+    filters.partner_id,
+    filters.transmission,
+    filters.fuel,
+    filters.min_price,
+    filters.max_price,
+  ].filter(Boolean).length
+  const actionsFlotte: ActionsFlotte = {
+    onVoir: (vehicule) => ouvrirFiche(vehicule, 'voir'),
+    onModifier: (vehicule) => ouvrirFiche(vehicule, 'modifier'),
+    onApprove: approve,
+    onUnpublish: unpublish,
+    onRemove: remove,
+  }
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
@@ -589,7 +835,30 @@ export function AdminVehiclesPage() {
 
       {msg && <p className="mb-4 text-sm text-ink-600">{msg}</p>}
 
-      <div className="mb-5 rounded-xl border border-black/8 bg-white p-4">
+      <div className="mb-5 overflow-hidden rounded-xl border border-black/8 bg-white">
+        <button
+          type="button"
+          onClick={() => setFiltresOuverts((ouvert) => !ouvert)}
+          aria-expanded={filtresOuverts}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-black/[0.02]"
+        >
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-black/10 text-[#8c4205]">
+            <IconeChevron ouvert={filtresOuverts} />
+          </span>
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="text-sm font-semibold text-ink-900">Filtres</span>
+            {nbFiltresActifs > 0 && (
+              <span className="rounded-full bg-[#8c4205] px-2 py-0.5 text-xs font-semibold text-white">
+                {nbFiltresActifs}
+              </span>
+            )}
+            {!filtresOuverts && (
+              <span className="truncate text-sm text-ink-500">Recherche, catégories, statuts</span>
+            )}
+          </span>
+        </button>
+        {filtresOuverts && (
+        <div className="border-t border-black/8 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Recherche">
             <input
@@ -694,8 +963,10 @@ export function AdminVehiclesPage() {
             >
               {label}
             </button>
-          ))}
+            ))}
         </div>
+        </div>
+        )}
       </div>
 
       {estSuperAdmin ? (
@@ -756,6 +1027,12 @@ export function AdminVehiclesPage() {
                     aria-expanded={ouvert}
                     className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-black/[0.02]"
                   >
+                    <span
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-black/10 text-[#8c4205]"
+                      title={ouvert ? 'Plier' : 'Déplier'}
+                    >
+                      <IconeChevron ouvert={ouvert} />
+                    </span>
                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8c4205]/10 text-sm font-bold text-[#8c4205]">
                       {index + 1}
                     </span>
@@ -773,58 +1050,16 @@ export function AdminVehiclesPage() {
                         {g.nonPubliees.length} pas encore publiée{g.nonPubliees.length > 1 ? 's' : ''}
                       </span>
                     </span>
-                    <span
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-black/10 text-[#8c4205]"
-                      title={ouvert ? 'Plier' : 'Déplier'}
-                    >
-                      <IconeChevron ouvert={ouvert} />
-                    </span>
                   </button>
                   {ouvert && (
-                  <div className={`grid gap-px border-t border-black/8 bg-black/8 ${montrerPubliees && montrerNonPubliees ? 'lg:grid-cols-2' : ''}`}>
-                    {montrerPubliees && (
-                      <div className="bg-white p-4">
-                        <h3 className="mb-3 text-sm font-semibold text-ink-800">Publiées sur la plateforme</h3>
-                        {g.publiees.length === 0 ? (
-                          <p className="text-sm text-ink-400">Aucune voiture publiée.</p>
-                        ) : (
-                          <ul className="space-y-2">
-                            {g.publiees.map((v) => (
-                              <LigneVoiturePartenaire
-                                key={v.id}
-                                v={v}
-                                categoryLabel={categoryLabel}
-                                onApprove={approve}
-                                onUnpublish={unpublish}
-                                onRemove={remove}
-                              />
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                    {montrerNonPubliees && (
-                      <div className="bg-sand-50 p-4">
-                        <h3 className="mb-3 text-sm font-semibold text-ink-800">Créées, pas encore publiées</h3>
-                        {g.nonPubliees.length === 0 ? (
-                          <p className="text-sm text-ink-400">Aucune voiture en attente de publication.</p>
-                        ) : (
-                          <ul className="space-y-2">
-                            {g.nonPubliees.map((v) => (
-                              <LigneVoiturePartenaire
-                                key={v.id}
-                                v={v}
-                                categoryLabel={categoryLabel}
-                                onApprove={approve}
-                                onUnpublish={unpublish}
-                                onRemove={remove}
-                              />
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                    <FlottePartenaire
+                      publiees={g.publiees}
+                      nonPubliees={g.nonPubliees}
+                      montrerPubliees={montrerPubliees}
+                      montrerNonPubliees={montrerNonPubliees}
+                      categoryLabel={categoryLabel}
+                      actions={actionsFlotte}
+                    />
                   )}
                 </section>
               )
@@ -845,7 +1080,7 @@ export function AdminVehiclesPage() {
           const image = coverUrl(v)
           return (
             <article key={v.id} className="overflow-hidden rounded-xl border border-black/8 bg-white">
-              <Link to={`/admin/vehicules/${v.id}`} className="block aspect-[16/10] bg-[#f0f1f0]">
+              <button type="button" onClick={() => ouvrirFiche(v)} className="block aspect-[16/10] w-full bg-[#f0f1f0]">
                 {image ? (
                   <img
                     src={image}
@@ -856,18 +1091,19 @@ export function AdminVehiclesPage() {
                 ) : (
                   <div className="grid h-full place-items-center text-sm text-ink-500">Pas de photo</div>
                 )}
-              </Link>
+              </button>
               <div className="space-y-3 p-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-ink-400">
                     {v.category_info?.label || categoryLabel(v.category)}
                   </p>
-                  <Link
-                    to={`/admin/vehicules/${v.id}`}
-                    className="text-xl font-semibold text-ink-900 hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => ouvrirFiche(v)}
+                    className="text-left text-xl font-semibold text-ink-900 hover:underline"
                   >
                     {v.brand} {v.model}
-                  </Link>
+                  </button>
                   <p className="mt-1 text-sm text-ink-500">
                     {v.plate_number} · {partnerName(v.partner)}
                   </p>
@@ -883,44 +1119,14 @@ export function AdminVehiclesPage() {
                     </p>
                     <p className="text-xs capitalize text-ink-500">{v.status}</p>
                   </div>
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    <Link
-                      to={`/admin/vehicules/${v.id}`}
-                      className="rounded-lg border border-black/12 px-2.5 py-1.5 text-xs font-medium text-ink-700"
-                    >
-                      Détail
-                    </Link>
-                    <Link
-                      to={`/admin/vehicules/${v.id}/modifier`}
-                      className="rounded-lg border border-black/12 px-2.5 py-1.5 text-xs font-medium text-ink-700"
-                    >
-                      Modifier
-                    </Link>
-                    {v.status !== 'published' ? (
-                      <button
-                        type="button"
-                        onClick={() => void approve(v.id)}
-                        className="rounded-lg bg-[#8c4205] px-2.5 py-1.5 text-xs font-semibold text-white"
-                      >
-                        Publier
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void unpublish(v.id)}
-                        className="rounded-lg border border-black/12 px-2.5 py-1.5 text-xs font-medium text-ink-700"
-                      >
-                        Dépublier
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => void remove(v.id)}
-                      className="rounded-lg border border-black/12 px-2.5 py-1.5 text-xs font-medium text-ink-500"
-                    >
-                      Suppr.
-                    </button>
-                  </div>
+                  <ActionsLigneVehicule
+                    vehicule={v}
+                    onVoir={(vehicule) => ouvrirFiche(vehicule)}
+                    onModifier={(vehicule) => ouvrirFiche(vehicule, 'modifier')}
+                    onApprove={approve}
+                    onUnpublish={unpublish}
+                    onRemove={remove}
+                  />
                 </div>
               </div>
             </article>
@@ -976,6 +1182,120 @@ export function AdminVehiclesPage() {
       )}
 
       <FenetreModale
+        ouvert={fiche !== null}
+        titre={
+          fiche
+            ? modeFiche === 'modifier'
+              ? `Modifier ${fiche.brand} ${fiche.model}`
+              : `${fiche.brand} ${fiche.model}`
+            : 'Véhicule'
+        }
+        sousTitre={
+          fiche ? `${fiche.plate_number || 'Sans plaque'} · ${partnerName(fiche.partner)}` : undefined
+        }
+        onFermer={() => setFiche(null)}
+        classePanneau="max-h-[min(90vh,52rem)] w-full max-w-4xl"
+      >
+        {fiche && modeFiche === 'voir' && (
+          <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="overflow-hidden rounded-xl border border-black/8">
+              <div className="aspect-[16/10] bg-[#f0f1f0]">
+                {coverUrl(fiche) ? (
+                  <img src={coverUrl(fiche)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full place-items-center text-sm text-ink-500">Pas de photo</div>
+                )}
+              </div>
+              {fiche.description && (
+                <p className="whitespace-pre-wrap border-t border-black/6 p-4 text-sm text-ink-700">{fiche.description}</p>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-3xl font-bold text-ink-900">
+                  {formatXaf(fiche.price_per_day)}
+                  <span className="text-sm font-normal text-ink-500"> / jour</span>
+                </p>
+                <p className="mt-1 text-sm text-ink-500">
+                  {LIBELLES_STATUT_VEHICULE[fiche.status] || fiche.status}
+                  {' · '}
+                  Caution {formatXaf(fiche.deposit_amount || 0)}
+                  {fiche.included_km != null ? ` · ${fiche.included_km} km inclus` : ''}
+                </p>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                {[
+                  ['Catégorie', fiche.category_info?.label || categoryLabel(fiche.category)],
+                  ['Transmission', transmissionLabel(fiche.transmission)],
+                  ['Carburant', fuelLabel(fiche.fuel)],
+                  ['Places', String(fiche.seats)],
+                  ['Portes', String(fiche.doors ?? '—')],
+                  ['Bagages', String(fiche.luggage ?? '—')],
+                  ['Année', String(fiche.year ?? '—')],
+                  ['Couleur', fiche.color || '—'],
+                  ['Prestataire', partnerName(fiche.partner)],
+                  ['Agence', fiche.agency?.name || '—'],
+                ].map(([libelle, valeur]) => (
+                  <div key={libelle}>
+                    <dt className="text-ink-400">{libelle}</dt>
+                    <dd className="font-medium text-ink-900">{valeur}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModeFiche('modifier')}
+                  className="rounded-xl bg-[#8c4205] px-4 py-2.5 text-sm font-semibold text-white"
+                >
+                  Modifier
+                </button>
+                {fiche.status !== 'published' ? (
+                  <button
+                    type="button"
+                    onClick={() => void approve(fiche.id)}
+                    className="rounded-xl border border-black/12 px-4 py-2.5 text-sm font-medium"
+                  >
+                    Publier
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void unpublish(fiche.id)}
+                    className="rounded-xl border border-black/12 px-4 py-2.5 text-sm font-medium"
+                  >
+                    Dépublier
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void remove(fiche.id)}
+                  className="rounded-xl border border-black/12 px-4 py-2.5 text-sm font-medium text-ink-500"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {fiche && modeFiche === 'modifier' && (
+          <VehicleForm
+            key={fiche.id}
+            mode="edit"
+            initial={vehicleToForm(fiche)}
+            onAnnuler={() => setModeFiche('voir')}
+            onSubmit={async (payload) => {
+              const { data } = await api.put(`/admin/vehicles/${fiche.id}`, payload)
+              setFiche({ ...fiche, ...data.data })
+              setModeFiche('voir')
+              setMsg('Véhicule mis à jour')
+              await load()
+            }}
+          />
+        )}
+      </FenetreModale>
+
+      <FenetreModale
         ouvert={creationOuverte}
         titre="Nouveau véhicule"
         sousTitre="Ajoutez une offre au catalogue — elle apparaîtra sur le site si le statut est « publié »."
@@ -988,7 +1308,8 @@ export function AdminVehiclesPage() {
           onSubmit={async (payload) => {
             const { data } = await api.post('/admin/vehicles', payload)
             fermerCreation()
-            navigate(`/admin/vehicules/${data.data.id}`)
+            ouvrirFiche(data.data as VehicleRow)
+            await load()
           }}
         />
       </FenetreModale>

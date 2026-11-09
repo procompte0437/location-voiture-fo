@@ -1,10 +1,54 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PublicHeader } from '../../components/layout/Header'
 import { LogoDoto } from '../../components/layout/LogoDoto'
 import { IconeReseau, PiedDePage, RESEAUX_SOCIAUX } from '../../components/layout/PiedDePage'
 import { useAuth } from '../../context/AuthContext'
 import api, { messageErreurApi } from '../../lib/api'
+
+/** Mot de passe avec œil : le visiteur vérifie ce qu’il a saisi sans quitter le champ. */
+function ChampMotDePasse({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <span className="relative mt-1.5 block">
+      <input
+        {...props}
+        type={visible ? 'text' : 'password'}
+        className={`${className.replace('mt-1.5', '').trim()} pr-11`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((actuel) => !actuel)}
+        aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        aria-pressed={visible}
+        className="absolute inset-y-0 right-0 grid w-11 place-items-center text-ink-500 hover:text-marque-encre"
+      >
+        {visible ? <IconeOeilBarre /> : <IconeOeil />}
+      </button>
+    </span>
+  )
+}
+
+function IconeOeil() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="2.6" />
+    </svg>
+  )
+}
+
+function IconeOeilBarre() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M3 3l18 18" strokeLinecap="round" />
+      <path d="M10.6 6.2A9 9 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.4 4" strokeLinecap="round" />
+      <path d="M6.2 6.2C3.6 8.1 2 12 2 12s3.5 6 10 6c1.1 0 2.2-.2 3.2-.6" strokeLinecap="round" />
+      <path d="M9.9 9.9a2.6 2.6 0 0 0 3.6 3.6" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 /** Route et véhicule : le panneau d’accueil client reste lisible sous le vert DOTO. */
 const PHOTO_ESPACE_CLIENT =
@@ -235,12 +279,12 @@ export function LoginPage() {
               </label>
               <label className="block text-sm font-medium text-ink-800">
                 Mot de passe
-                <input
-                  type="password"
+                <ChampMotDePasse
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={champ}
                   required
+                  autoComplete="current-password"
                   autoFocus={!!emailParam}
                 />
               </label>
@@ -349,13 +393,12 @@ export function LoginPage() {
                 </label>
                 <label className="block text-sm font-medium text-ink-800">
                   Mot de passe
-                  <input required type="password" autoComplete="new-password" value={inscription.password} onChange={(e) => setInscription((f) => ({ ...f, password: e.target.value }))} className={champSaisie} />
+                  <ChampMotDePasse required autoComplete="new-password" value={inscription.password} onChange={(e) => setInscription((f) => ({ ...f, password: e.target.value }))} className={champSaisie} />
                 </label>
                 <label className="block text-sm font-medium text-ink-800">
                   Confirmation
-                  <input
+                  <ChampMotDePasse
                     required
-                    type="password"
                     autoComplete="new-password"
                     value={inscription.password_confirmation}
                     onChange={(e) => setInscription((f) => ({ ...f, password_confirmation: e.target.value }))}

@@ -2,6 +2,7 @@ import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { LogoDoto } from '../layout/LogoDoto'
+import { AvatarCompte, MenuCompteAdmin } from './MenuCompteAdmin'
 
 type NavItem = {
   to: string
@@ -33,9 +34,7 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
   {
     title: 'Opérations',
     items: [
-      { to: '/admin/comptes', label: 'Comptes' },
-      { to: '/admin/validation', label: 'Validation partenaires' },
-      { to: '/admin/evaluation', label: 'Évaluation partenaires' },
+      { to: '/admin/comptes', label: 'Suivi des comptes' },
       { to: '/admin/reservations', label: 'Réservations' },
       { to: '/admin/finances', label: 'Finances' },
     ],
@@ -119,22 +118,13 @@ const PAGE_HINTS: Record<string, string> = {
   '/admin/audit': 'Piste d’audit immuable',
   '/admin/vehicules': 'CRUD catalogue — filtres, détail, publication',
   '/admin/vehicules/nouveau': 'Création d’une nouvelle offre véhicule',
-  '/admin/comptes': 'Comptes clients, partenaires et admins',
-  '/admin/validation': 'Validation des dossiers partenaires',
-  '/admin/evaluation': 'Prestataires à déplier, avec le tableau de toutes leurs voitures',
+  '/admin/comptes': 'Accès, dossiers et activité des comptes',
   '/admin/reservations': 'Flux de réservations',
   '/admin/finances': 'GMV et commissions',
   '/admin/referentiel': 'Lieux, marques, modèles et listes déroulantes',
   '/admin/agences': 'Agences rattachées aux 9 provinces (carte accueil)',
-}
-
-function initials(name?: string) {
-  if (!name) return 'AD'
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || '')
-    .join('')
+  '/admin/profil': 'Identité du compte',
+  '/admin/parametres': 'Photo, identité et mot de passe',
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
@@ -185,7 +175,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <LogoDoto className="h-11 w-11" />
           DOTO
         </Link>
-        <span className="text-xs text-ink-500">Admin</span>
+        <MenuCompteAdmin compact />
       </div>
 
       {ouvertMobile && (
@@ -255,9 +245,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
           <div className="mt-auto space-y-3 border-t border-marque-encre/10 pt-4">
             <div className="flex items-center gap-3 px-2">
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-marque-500/20 text-xs font-bold text-marque-encre">
-                {initials(user?.name)}
-              </div>
+              <AvatarCompte
+                nom={user?.name}
+                photo={user?.photo}
+                className="h-9 w-9 overflow-hidden rounded-full bg-marque-500/20 text-marque-encre"
+              />
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold">{user?.name}</p>
                 <p className="truncate text-[11px] text-ink-500">
@@ -265,17 +257,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 px-1">
-              <Link
-                to="/"
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-bold text-marque-encre transition hover:bg-white"
-              >
-                Site public
-              </Link>
+            <div className="px-1">
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-bold text-marque-encre transition hover:bg-white"
+                className="w-full rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-bold text-marque-encre transition hover:bg-white"
               >
                 Déconnexion
               </button>
@@ -284,8 +270,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className={`transition-[padding] duration-300 ${sidebarOuverte ? 'lg:pl-[260px]' : 'lg:pl-0'}`}>
-        <header className="sticky top-0 z-30 hidden border-b border-black/8 bg-white lg:block">
+      <div className={`flex min-h-screen flex-col transition-[padding] duration-300 ${sidebarOuverte ? 'lg:pl-[260px]' : 'lg:pl-0'}`}>
+        <header className="sticky top-0 z-40 hidden shrink-0 border-b border-black/8 bg-white lg:block">
           <div className="flex items-center justify-between gap-4 px-8 py-3">
             <div className="flex min-w-0 items-center gap-3">
               <button
@@ -302,18 +288,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </button>
               <p className="truncate text-sm text-ink-500">{hint}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-ink-900">{user?.name}</p>
-                <p className="text-[11px] text-ink-500">{user?.email}</p>
-              </div>
-              <div className="grid h-9 w-9 place-items-center rounded-full bg-[#8c4205] text-xs font-bold text-white">
-                {initials(user?.name)}
-              </div>
-            </div>
+            <MenuCompteAdmin />
           </div>
         </header>
-        <main className="min-h-screen px-4 py-6 md:px-8 md:py-7">{children}</main>
+        <main className="flex-1 px-4 py-4 md:px-8 md:py-5">{children}</main>
       </div>
     </div>
   )

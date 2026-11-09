@@ -39,7 +39,7 @@ function libelleCompte(nombre: number, singulier: string, pluriel: string) {
  * Chaque prestataire se plie et se déplie.
  * Déplié, le tableau liste toutes ses voitures et leurs réservations.
  */
-export function PageEvaluationPartenaires() {
+export function PageEvaluationPartenaires({ sansEntete = false }: { sansEntete?: boolean }) {
   const { user, loading: authLoading } = useAuth()
   const [lignes, setLignes] = useState<PartenaireEvalue[]>([])
   const [chargement, setChargement] = useState(true)
@@ -100,15 +100,17 @@ export function PageEvaluationPartenaires() {
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
-      <div className="mb-7">
-        <h1 className="text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">
-          Évaluation des partenaires
-        </h1>
-        <p className="mt-1.5 max-w-2xl text-sm text-ink-500">
-          Le nom de chaque prestataire, puis la liste de toutes ses voitures. Dépliez un bloc pour
-          lire le tableau.
-        </p>
-      </div>
+      {!sansEntete && (
+        <div className="mb-7">
+          <h1 className="text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">
+            Évaluation des partenaires
+          </h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-ink-500">
+            Le nom de chaque prestataire, puis la liste de toutes ses voitures. Dépliez un bloc pour
+            lire le tableau.
+          </p>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <input
@@ -152,6 +154,12 @@ export function PageEvaluationPartenaires() {
                   aria-expanded={ouvert}
                   className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-black/[0.02]"
                 >
+                  <span
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-black/10 text-[#8c4205]"
+                    title={ouvert ? 'Plier' : 'Déplier'}
+                  >
+                    <IconeChevron ouvert={ouvert} />
+                  </span>
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#8c4205]/10 text-sm font-bold text-[#8c4205]">
                     {index + 1}
                   </span>
@@ -167,12 +175,6 @@ export function PageEvaluationPartenaires() {
                       {' · '}
                       {formatXaf(p.montant_total)}
                     </span>
-                  </span>
-                  <span
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-black/10 text-[#8c4205]"
-                    title={ouvert ? 'Plier' : 'Déplier'}
-                  >
-                    <IconeChevron ouvert={ouvert} />
                   </span>
                 </button>
                 {ouvert && (

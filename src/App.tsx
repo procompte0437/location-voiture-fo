@@ -32,16 +32,15 @@ import {
   AdminAuditPage,
   AdminDashboardPage,
   AdminLayout,
-  AdminValidationPage,
 } from './pages/admin/AdminDashboardPage'
 import {
-  AdminAccountsPage,
   AdminBookingsPage,
   AdminFinancesPage,
   AdminLocationsPage,
 } from './pages/admin/AdminManagePages'
 import { AdminAgencesPage } from './pages/admin/AdminAgencesPage'
-import { PageEvaluationPartenaires } from './pages/admin/PageEvaluationPartenaires'
+import { PageParametresAdmin, PageProfilAdmin } from './pages/admin/PageCompteAdmin'
+import { PageAtelierComptes } from './pages/admin/PageAtelierComptes'
 import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
 import {
   AdminVehicleCreatePage,
@@ -95,11 +94,11 @@ function PagesFluides() {
           </Route>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboardPage />} />
-            <Route path="validation" element={<AdminValidationPage />} />
-            <Route path="evaluation" element={<PageEvaluationPartenaires />} />
+            <Route path="validation" element={<Navigate to="/admin/comptes?onglet=validation" replace />} />
+            <Route path="evaluation" element={<Navigate to="/admin/comptes?onglet=evaluation" replace />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="lieux" element={<AdminLocationsPage />} />
-            <Route path="comptes" element={<AdminAccountsPage />} />
+            <Route path="comptes" element={<PageAtelierComptes />} />
             <Route path="vehicules" element={<AdminVehiclesPage />} />
             <Route path="vehicules/nouveau" element={<AdminVehicleCreatePage />} />
             <Route path="vehicules/:id" element={<AdminVehicleDetailPage />} />
@@ -108,6 +107,8 @@ function PagesFluides() {
             <Route path="finances" element={<AdminFinancesPage />} />
             <Route path="referentiel" element={<AdminReferentielPage />} />
             <Route path="agences" element={<AdminAgencesPage />} />
+            <Route path="profil" element={<PageProfilAdmin />} />
+            <Route path="parametres" element={<PageParametresAdmin />} />
           </Route>
           <Route path="/a-propos" element={<PageAPropos />} />
           <Route path="/faq" element={<FaqPage />} />

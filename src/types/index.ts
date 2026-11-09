@@ -5,6 +5,7 @@ export interface User {
   name: string
   email: string
   phone?: string | null
+  photo?: string | null
   role: UserRole
   status: string
   locale: string

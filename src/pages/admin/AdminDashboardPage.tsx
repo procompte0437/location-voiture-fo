@@ -179,7 +179,7 @@ export function AdminDashboardPage() {
         action={
           estSuperAdmin ? (
           <Link
-            to="/admin/validation"
+            to="/admin/comptes?onglet=validation"
             className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 transition hover:bg-[#f4f5f4]"
           >
             File de validation
@@ -225,7 +225,7 @@ export function AdminDashboardPage() {
         <div className="rounded-xl border border-black/8 bg-white p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink-900">À traiter</h2>
-            <Link to="/admin/validation" className="text-sm font-medium text-[#8c4205] hover:underline">
+            <Link to="/admin/comptes?onglet=validation" className="text-sm font-medium text-[#8c4205] hover:underline">
               Tout voir
             </Link>
           </div>
@@ -304,7 +304,7 @@ export function AdminDashboardPage() {
   )
 }
 
-export function AdminValidationPage() {
+export function AdminValidationPage({ sansEntete = false }: { sansEntete?: boolean }) {
   const { user } = useAuth()
   const { partners, message, chargementPartenaires, approve, reject, reload } = useAdminData()
   const [filtreStatut, setFiltreStatut] = useState('pending')
@@ -334,10 +334,12 @@ export function AdminValidationPage() {
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
-      <PageHeader
-        title="File de validation"
-        subtitle="Consultez les dossiers partenaires validés et non validés."
-      />
+      {!sansEntete && (
+        <PageHeader
+          title="File de validation"
+          subtitle="Consultez les dossiers partenaires validés et non validés."
+        />
+      )}
       {message && (
         <div className="mb-6 rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-ink-700">
           {message}

@@ -44,7 +44,7 @@ function PillTabs({
   )
 }
 
-export function AdminAccountsPage() {
+export function AdminAccountsPage({ sansEntete = false }: { sansEntete?: boolean }) {
   const { user } = useAuth()
   const [users, setUsers] = useState<
     {
@@ -130,10 +130,12 @@ export function AdminAccountsPage() {
 
   return (
     <div className="animate-[adminIn_0.45s_ease-out]">
-      <PageHeader
-        title="Comptes"
-        subtitle="Réservé au super admin : gestion de tous les partenaires et des comptes réservateurs."
-      />
+      {!sansEntete && (
+        <PageHeader
+          title="Comptes"
+          subtitle="Réservé au super admin : gestion de tous les partenaires et des comptes réservateurs."
+        />
+      )}
       {msg && <p className="mb-4 text-sm text-ink-600">{msg}</p>}
       <PillTabs
         value={role}

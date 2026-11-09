@@ -229,17 +229,11 @@ export function CoquePartenaire({
                 <p className="truncate text-[11px] text-ink-500">{user?.email}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 px-1">
-              <Link
-                to="/"
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-center text-xs font-medium text-marque-encre hover:bg-white"
-              >
-                Site public
-              </Link>
+            <div className="px-1">
               <button
                 type="button"
                 onClick={() => void seDeconnecter()}
-                className="rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-medium text-marque-encre hover:bg-white"
+                className="w-full rounded-lg border border-marque-encre/15 bg-white/50 px-2 py-2 text-xs font-medium text-marque-encre hover:bg-white"
               >
                 Déconnexion
               </button>
