@@ -194,7 +194,7 @@ export function PageFinancesPartenaire() {
 export function PageEntretiensPartenaire() {
   const [plans, setPlans] = useState<PlanLigne[]>([])
   const [interventions, setInterventions] = useState<InterventionLigne[]>([])
-  const [vehicules, setVehicules] = useState<{ id: number; brand: string; model: string }[]>([])
+  const [vehicules, setVehicules] = useState<{ id: number; brand: string; model: string; plate_number?: string }[]>([])
   const [chargement, setChargement] = useState(true)
   const [message, setMessage] = useState('')
   const [plan, setPlan] = useState({
@@ -273,6 +273,7 @@ export function PageEntretiensPartenaire() {
           {vehicules.map((v) => (
             <option key={v.id} value={v.id}>
               {v.brand} {v.model}
+              {v.plate_number ? ` · ${v.plate_number}` : ''}
             </option>
           ))}
         </select>
@@ -299,7 +300,8 @@ export function PageEntretiensPartenaire() {
             {
               cle: 'vehicule',
               libelle: 'Véhicule',
-              rendu: (p) => `${p.vehicule?.brand || ''} ${p.vehicule?.model || ''}`,
+              rendu: (p) =>
+                `${p.vehicule?.brand || ''} ${p.vehicule?.model || ''}${p.vehicule?.plate_number ? ` · ${p.vehicule.plate_number}` : ''}`,
             },
             { cle: 'prochaine_echeance_le', libelle: 'Prochaine date' },
             { cle: 'prochain_kilometrage', libelle: 'Prochain km' },
@@ -445,7 +447,7 @@ type PlanLigne = {
   libelle: string
   prochaine_echeance_le?: string
   prochain_kilometrage?: number
-  vehicule?: { brand?: string; model?: string }
+  vehicule?: { brand?: string; model?: string; plate_number?: string }
 }
 
 type InterventionLigne = {
