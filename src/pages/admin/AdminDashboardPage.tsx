@@ -5,6 +5,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import api, { formatXaf } from '../../lib/api'
+import { DossierDocumentsAdmin } from './DossierDocumentsAdmin'
 
 interface PartnerRow {
   id: number
@@ -308,6 +309,7 @@ export function AdminValidationPage({ sansEntete = false }: { sansEntete?: boole
   const { user } = useAuth()
   const { partners, message, chargementPartenaires, approve, reject, reload } = useAdminData()
   const [filtreStatut, setFiltreStatut] = useState('pending')
+  const [dossierOuvert, setDossierOuvert] = useState<number | null>(null)
 
   if (user?.role !== 'super_admin') {
     return <Navigate to="/admin" replace />
@@ -419,8 +421,16 @@ export function AdminValidationPage({ sansEntete = false }: { sansEntete?: boole
           surActualiser={reload}
           chargement={chargementPartenaires}
           messageVide="Aucun partenaire pour ce filtre."
-          actions={(p) =>
-            p.status === 'pending' || p.status === 'info_requested' ? (
+          actions={(p) => (
+            <>
+              <button
+                type="button"
+                onClick={() => setDossierOuvert(p.id)}
+                className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-medium text-ink-700"
+              >
+                Pièces
+              </button>
+              {p.status === 'pending' || p.status === 'info_requested' ? (
               <>
                 <button
                   type="button"
@@ -437,11 +447,11 @@ export function AdminValidationPage({ sansEntete = false }: { sansEntete?: boole
                   Refuser
                 </button>
               </>
-            ) : (
-              <span className="text-xs text-ink-400">—</span>
-            )
-          }
+            ) : null}
+            </>
+          )}
         />
+      <DossierDocumentsAdmin partenaireId={dossierOuvert} onFermer={() => setDossierOuvert(null)} surChangement={() => void reload()} />
     </div>
   )
 }

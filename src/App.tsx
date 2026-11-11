@@ -39,6 +39,7 @@ import {
   AdminLocationsPage,
 } from './pages/admin/AdminManagePages'
 import { AdminAgencesPage } from './pages/admin/AdminAgencesPage'
+import { PageDocumentsPartenaire } from './pages/partenaire/PageDocumentsPartenaire'
 import { PageParametresAdmin, PageProfilAdmin } from './pages/admin/PageCompteAdmin'
 import { PageAtelierComptes } from './pages/admin/PageAtelierComptes'
 import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
@@ -89,6 +90,7 @@ function PagesFluides() {
             <Route path="finances" element={<PageFinancesPartenaire />} />
             <Route path="entretiens" element={<PageEntretiensPartenaire />} />
             <Route path="equipe" element={<PageEquipePartenaire />} />
+            <Route path="documents" element={<PageDocumentsPartenaire />} />
             <Route path="clients" element={<PageMesClients />} />
             <Route path="aide" element={<PageAidePartenaire />} />
           </Route>
