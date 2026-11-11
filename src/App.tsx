@@ -40,6 +40,8 @@ import {
 } from './pages/admin/AdminManagePages'
 import { AdminAgencesPage } from './pages/admin/AdminAgencesPage'
 import { PageDocumentsPartenaire } from './pages/partenaire/PageDocumentsPartenaire'
+import { PageAvisPartenaire } from './pages/partenaire/PageAvisPartenaire'
+import { PageModerationAvis } from './pages/admin/PageModerationAvis'
 import { PageParametresAdmin, PageProfilAdmin } from './pages/admin/PageCompteAdmin'
 import { PageAtelierComptes } from './pages/admin/PageAtelierComptes'
 import { AdminReferentielPage } from './pages/admin/AdminReferentielPage'
@@ -91,6 +93,7 @@ function PagesFluides() {
             <Route path="entretiens" element={<PageEntretiensPartenaire />} />
             <Route path="equipe" element={<PageEquipePartenaire />} />
             <Route path="documents" element={<PageDocumentsPartenaire />} />
+            <Route path="avis" element={<PageAvisPartenaire />} />
             <Route path="clients" element={<PageMesClients />} />
             <Route path="aide" element={<PageAidePartenaire />} />
           </Route>
@@ -106,6 +109,7 @@ function PagesFluides() {
             <Route path="vehicules/:id" element={<AdminVehicleDetailPage />} />
             <Route path="vehicules/:id/modifier" element={<AdminVehicleEditPage />} />
             <Route path="reservations" element={<AdminBookingsPage />} />
+            <Route path="avis" element={<PageModerationAvis />} />
             <Route path="finances" element={<AdminFinancesPage />} />
             <Route path="referentiel" element={<AdminReferentielPage />} />
             <Route path="agences" element={<AdminAgencesPage />} />

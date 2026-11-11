@@ -11,6 +11,7 @@ import { TableauDonnees } from '../../components/ui/TableauDonnees'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { PaiementMobileMoney } from '../../components/reservation/PaiementMobileMoney'
+import { Etoiles, FormulaireAvis } from '../../components/avis/Avis'
 import api, { formatXaf, messageErreurApi, telechargerFichier } from '../../lib/api'
 import type { Booking } from '../../types'
 
@@ -358,6 +359,8 @@ export function MyBookingsPage() {
   const [montantMin, setMontantMin] = useState<FiltreMontantMin>('')
   const [aAnnuler, setAAnnuler] = useState<Booking | null>(null)
   const [aSupprimer, setASupprimer] = useState<Booking | null>(null)
+  const [aNoter, setANoter] = useState<Booking | null>(null)
+  const [merci, setMerci] = useState('')
   const [annulation, setAnnulation] = useState(false)
   const [suppression, setSuppression] = useState(false)
 
@@ -894,10 +897,34 @@ export function MyBookingsPage() {
                   libelle="Supprimer définitivement"
                   onClick={() => setASupprimer(b)}
                 />
+              ) : b.status === 'completed' && b.review ? (
+                <Etoiles note={b.review.rating_overall} />
+              ) : b.status === 'completed' ? (
+                <button
+                  type="button"
+                  onClick={() => setANoter(b)}
+                  className="rounded-lg bg-forest-800 px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  Donner mon avis
+                </button>
               ) : null
             }
           />
         )}
+        {merci && (
+          <p className="mt-4 rounded-xl border border-forest-600/15 bg-forest-50 px-4 py-3 text-sm text-forest-900" role="status">
+            {merci}
+          </p>
+        )}
+        <FormulaireAvis
+          reservation={aNoter}
+          onFermer={() => setANoter(null)}
+          surEnvoye={(texte) => {
+            setANoter(null)
+            setMerci(texte)
+            void charger()
+          }}
+        />
         <FenetreModale
           ouvert={aAnnuler !== null}
           titre="Annuler la réservation"

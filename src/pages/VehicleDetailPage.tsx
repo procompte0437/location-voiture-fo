@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { BlocAvisVehicule } from '../components/avis/Avis'
 import { CoqueSession } from '../components/layout/CoqueSession'
 import { PublicHeader } from '../components/layout/Header'
 import {
@@ -507,6 +508,7 @@ export function VehicleDetailPage() {
               <p className="mt-2 text-sm text-forest-800">
                 Politique carburant : {libelleCarburant(vehicle.fuel_policy)}
               </p>
+              <BlocAvisVehicule vehiculeId={id} />
             </>
           ) : (
             <ContentLoader label="Chargement du véhicule…" className="py-12" />

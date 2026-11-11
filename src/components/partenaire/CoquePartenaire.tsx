@@ -17,6 +17,7 @@ const MENU: { titre: string; elements: ElementNav[] }[] = [
       { vers: '/partenaire/reservations', libelle: 'Mes réservations' },
       { vers: '/partenaire/finances', libelle: 'Finances' },
       { vers: '/partenaire/clients', libelle: 'Mes clients' },
+      { vers: '/partenaire/avis', libelle: 'Avis' },
       { vers: '/partenaire/equipe', libelle: 'Équipe' },
       { vers: '/partenaire/documents', libelle: 'Documents' },
     ],

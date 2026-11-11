@@ -36,6 +36,7 @@ const NAV: { title: string; items: NavItem[]; superAdminSeul?: boolean }[] = [
     items: [
       { to: '/admin/comptes', label: 'Suivi des comptes' },
       { to: '/admin/reservations', label: 'Réservations' },
+      { to: '/admin/avis', label: 'Avis clients' },
       { to: '/admin/finances', label: 'Finances' },
     ],
   },

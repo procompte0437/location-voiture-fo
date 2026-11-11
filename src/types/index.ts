@@ -113,4 +113,5 @@ export interface Booking {
   vehicle?: Vehicle
   partner?: Partner
   pickup_location?: Location | null
+  review?: { id: number; rating_overall: number } | null
 }
