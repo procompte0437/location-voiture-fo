@@ -821,9 +821,13 @@ export function VehicleDetailPage() {
           {etape === 'paiement' && (
           <section className="rounded-xl border border-sand-200 bg-white p-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <h2 className="font-semibold">Demande de réservation</h2>
+              <h2 className="font-semibold">
+                {vehicle?.booking_mode === 'instant' ? 'Réservation' : 'Demande de réservation'}
+              </h2>
               <p className="text-sm text-ink-600">
-                Le loueur accepte ou refuse. Le règlement sera suivi par lui, pas encaissé ici.
+                {vehicle?.booking_mode === 'instant'
+                  ? 'Confirmée dès l’envoi. Le règlement se fait auprès du loueur, pas ici.'
+                  : 'Le loueur accepte ou refuse sous 12 h. Le règlement sera suivi par lui, pas encaissé ici.'}
               </p>
             </div>
             <label className="mt-4 block text-sm">

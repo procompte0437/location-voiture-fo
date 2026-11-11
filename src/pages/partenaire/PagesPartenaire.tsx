@@ -744,6 +744,7 @@ export function PageNouvelleVoiture() {
     frais_livraison: 0,
     delai_preparation_minutes: 120,
     kilometrage: 0,
+    booking_mode: 'on_request',
   })
   const [fichierCouverture, setFichierCouverture] = useState<File | null>(null)
   const [apercuCouverture, setApercuCouverture] = useState<string | null>(null)
@@ -929,6 +930,17 @@ export function PageNouvelleVoiture() {
             required
           />
         </div>
+        <label className="block text-sm text-ink-700">
+          Mode de réservation
+          <select
+            className="mt-1 w-full rounded-xl border border-sand-200 px-4 py-3"
+            value={formulaire.booking_mode}
+            onChange={(e) => setFormulaire((actuel) => ({ ...actuel, booking_mode: e.target.value }))}
+          >
+            <option value="on_request">Sur demande : j’accepte ou je refuse chaque demande (sous 12 h)</option>
+            <option value="instant">Instantanée : la réservation est confirmée dès la demande du client</option>
+          </select>
+        </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <input
             type="number"

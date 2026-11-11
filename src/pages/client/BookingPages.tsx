@@ -159,12 +159,14 @@ export function ConfirmationPage() {
         <div className="rounded-2xl border border-white/40 bg-white/95 p-8 text-center shadow-xl backdrop-blur-sm">
           <p className="text-sm font-semibold uppercase tracking-wide text-forest-600">Confirmation</p>
           <h1 className="mt-2 font-display text-3xl font-bold text-forest-950">
-            Demande transmise
+            {booking.status === 'confirmed' ? 'Réservation confirmée' : 'Demande transmise'}
           </h1>
           <p className="mt-4 text-base leading-relaxed text-ink-700">
-            {aPayerEnLigne
+            {booking.status === 'confirmed'
+              ? 'Ce véhicule se réserve instantanément : votre location est confirmée. Le règlement se fait auprès du loueur. La caution reste distincte du prix de location.'
+              : aPayerEnLigne
               ? 'Réglez votre location ci-dessous, puis le loueur accepte ou refuse la demande. La caution reste distincte du prix de location.'
-              : 'Le loueur doit accepter ou refuser cette demande. Le règlement est suivi par le loueur : aucun paiement en ligne n’est encaissé à cette étape. La caution reste distincte du prix de location.'}
+              : 'Le loueur doit accepter ou refuser cette demande sous 12 h. Le règlement est suivi par le loueur : aucun paiement en ligne n’est encaissé à cette étape. La caution reste distincte du prix de location.'}
           </p>
           <p className="mt-5 text-ink-700">
             Référence <strong className="text-forest-800">{booking.reference}</strong>
